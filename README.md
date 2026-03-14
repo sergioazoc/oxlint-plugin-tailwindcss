@@ -1,4 +1,4 @@
-# oxlint-plugin-tailwindcss
+# oxlint-tailwindcss
 
 21 Tailwind CSS linting rules for [oxlint](https://oxc.rs/docs/guide/usage/linter). Built for Tailwind CSS v4 with zero-config auto-detection, typo suggestions, and autofixes.
 
@@ -17,7 +17,7 @@
 ## Installation
 
 ```bash
-pnpm add -D oxlint-plugin-tailwindcss
+pnpm add -D oxlint-tailwindcss
 ```
 
 ## Setup
@@ -26,7 +26,7 @@ Add the plugin to your `.oxlintrc.json`:
 
 ```jsonc
 {
-  "jsPlugins": ["oxlint-plugin-tailwindcss"],
+  "jsPlugins": ["oxlint-tailwindcss"],
   "rules": {
     // Correctness
     "tailwindcss/no-unknown-classes": "error",
@@ -78,7 +78,10 @@ To override auto-detection, pass `entryPoint` as an option:
 ```jsonc
 {
   "rules": {
-    "tailwindcss/no-unknown-classes": ["error", { "entryPoint": "src/app.css" }],
+    "tailwindcss/no-unknown-classes": [
+      "error",
+      { "entryPoint": "src/app.css" },
+    ],
   },
 }
 ```

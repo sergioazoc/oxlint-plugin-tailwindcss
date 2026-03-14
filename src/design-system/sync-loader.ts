@@ -172,7 +172,7 @@ export function loadDesignSystemSync(cssPath: string): PrecomputedData | null {
     return JSON.parse(stdout) as PrecomputedData
   } catch (error) {
     console.error(
-      `[oxlint-plugin-tailwindcss] Failed to load design system from "${resolvedPath}":`,
+      `[oxlint-tailwindcss] Failed to load design system from "${resolvedPath}":`,
       error instanceof Error ? error.message : error,
     )
     return null

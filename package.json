@@ -10,15 +10,15 @@
     "tailwind",
     "tailwindcss"
   ],
-  "homepage": "https://github.com/sergioazoc/oxlint-plugin-tailwindcss#readme",
+  "homepage": "https://github.com/sergioazoc/oxlint-tailwindcss#readme",
   "bugs": {
-    "url": "https://github.com/sergioazoc/oxlint-plugin-tailwindcss/issues"
+    "url": "https://github.com/sergioazoc/oxlint-tailwindcss/issues"
   },
   "license": "MIT",
   "author": "Sergio Azocar",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sergioazoc/oxlint-plugin-tailwindcss.git"
+    "url": "git+https://github.com/sergioazoc/oxlint-tailwindcss.git"
   },
   "files": [
     "dist"
