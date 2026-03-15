@@ -78,6 +78,34 @@ async function main() {
   const cssResults = ds.candidatesToCss(classNames);
   const validClasses = classNames.filter((_, i) => cssResults[i] != null);
 
+  // Expand: validate extra candidates not in getClassList() but valid in v4
+  const validSet = new Set(validClasses);
+  const knownPrefixes = new Set();
+  for (const cls of validClasses) {
+    const dash = cls.lastIndexOf('-');
+    if (dash > 0) knownPrefixes.add(cls.slice(0, dash));
+  }
+  const extraCandidates = [];
+  const breakpoints = ['sm', 'md', 'lg', 'xl', '2xl'];
+  for (const prefix of knownPrefixes) {
+    // Bare utilities: rounded, shadow, blur, etc.
+    if (!validSet.has(prefix)) extraCandidates.push(prefix);
+    // Screen breakpoint variants: max-w-screen-lg, etc.
+    for (const bp of breakpoints) {
+      const candidate = prefix + '-screen-' + bp;
+      if (!validSet.has(candidate)) extraCandidates.push(candidate);
+    }
+  }
+  if (extraCandidates.length > 0) {
+    const extraResults = ds.candidatesToCss(extraCandidates);
+    for (let i = 0; i < extraCandidates.length; i++) {
+      if (extraResults[i] != null) {
+        validClasses.push(extraCandidates[i]);
+        validSet.add(extraCandidates[i]);
+      }
+    }
+  }
+
   // Canonical forms (only store diffs)
   // NOTE: canonicalizeCandidates deduplicates, so we must call it one class at a time
   const canonical = {};
@@ -164,7 +192,7 @@ main().catch(e => { process.stderr.write(e.message); process.exit(1); });
 const CACHE_DIR = join(tmpdir(), 'oxlint-tailwindcss')
 
 // Bump this when precompute logic changes to invalidate disk cache
-const CACHE_VERSION = 3
+const CACHE_VERSION = 4
 
 function getCachePath(cssPath: string, mtime: number): string {
   const hash = createHash('md5').update(`v${CACHE_VERSION}:${cssPath}:${mtime}`).digest('hex')
@@ -213,39 +241,5 @@ export function loadDesignSystemSync(cssPath: string): PrecomputedData | null {
   }
 }
 
-const VALIDATE_SCRIPT = `
-const { __unstable__loadDesignSystem } = require('@tailwindcss/node');
-const { readFileSync } = require('fs');
-const { dirname } = require('path');
-async function main() {
-  const cssPath = process.env.TAILWIND_CSS_PATH;
-  const candidates = JSON.parse(process.env.CANDIDATES);
-  const css = readFileSync(cssPath, 'utf-8');
-  const ds = await __unstable__loadDesignSystem(css, { base: dirname(cssPath) });
-  const results = ds.candidatesToCss(candidates);
-  process.stdout.write(JSON.stringify(results.map(r => r != null)));
-}
-main().catch(e => { process.stderr.write(e.message); process.exit(1); });
-`
-
-/**
- * Validates candidates via candidatesToCss in a child process.
- * Returns boolean[] — true if the candidate produces CSS.
- */
-export function validateCandidatesSync(cssPath: string, candidates: string[]): boolean[] {
-  if (candidates.length === 0) return []
-
-  try {
-    const stdout = execFileSync(process.execPath, ['-e', VALIDATE_SCRIPT], {
-      encoding: 'utf-8',
-      timeout: 30_000,
-      maxBuffer: 10 * 1024 * 1024,
-      env: { ...process.env, TAILWIND_CSS_PATH: resolve(cssPath), CANDIDATES: JSON.stringify(candidates) },
-      cwd: dirname(resolve(cssPath)),
-    })
-    return JSON.parse(stdout) as boolean[]
-  } catch {
-    // If validation fails, assume all are valid (don't report false positives)
-    return candidates.map(() => true)
-  }
-}
+// validateCandidatesSync removed — runtime child process calls were too slow.
+// Unknown classes are now handled via precomputed expansion + heuristics in cache.isValid().

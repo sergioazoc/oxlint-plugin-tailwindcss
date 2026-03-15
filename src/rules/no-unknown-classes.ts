@@ -80,25 +80,11 @@ export const noUnknownClasses = defineRule({
       for (const loc of locations) {
         const classes = splitClasses(loc.value)
 
-        // First pass: collect classes not in the precomputed list
-        const unknown: Array<{ cls: string; stripped: string }> = []
         for (const cls of classes) {
           if (shouldIgnore(cls)) continue
+
           const stripped = stripModifiers(cls)
-          if (!cache.isValid(stripped)) {
-            unknown.push({ cls, stripped })
-          }
-        }
-
-        if (unknown.length === 0) continue
-
-        // Batch validate via candidatesToCss — the definitive check
-        const toValidate = [...new Set(unknown.map((u) => u.stripped))]
-        const invalid = cache.validateUnknown(toValidate)
-
-        // Report only truly invalid classes
-        for (const { cls, stripped } of unknown) {
-          if (!invalid.has(stripped)) continue
+          if (cache.isValid(stripped)) continue
 
           const suggestion = findBestSuggestion(stripped, cache.validClasses)
 

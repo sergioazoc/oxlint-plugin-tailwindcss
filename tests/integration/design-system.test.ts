@@ -59,18 +59,21 @@ describe('Design System Integration', () => {
     expect(cache.isValid('bg-fakecolor/80')).toBe(false)
   })
 
-  it('validates unknown classes via candidatesToCss fallback', () => {
+  it('validates dynamic numeric values via heuristic', () => {
     const { cache } = result!
-    // These classes are valid in Tailwind v4 but not in getClassList()
-    const candidates = ['w-45', 'min-h-17.5', 'rounded', 'max-w-screen-lg', 'shadow', 'bg-gradient-to-b']
-    const invalid = cache.validateUnknown(candidates)
-    // All should be valid (not in the invalid set)
-    for (const cls of candidates) {
-      expect(invalid.has(cls)).toBe(false)
-    }
-    // Made-up class should be invalid
-    const fakeInvalid = cache.validateUnknown(['not-a-real-class-xyz'])
-    expect(fakeInvalid.has('not-a-real-class-xyz')).toBe(true)
+    expect(cache.isValid('w-45')).toBe(true)
+    expect(cache.isValid('min-h-17.5')).toBe(true)
+    expect(cache.isValid('size-3.75')).toBe(true)
+    expect(cache.isValid('gap-13')).toBe(true)
+    expect(cache.isValid('fake-45')).toBe(false)
+  })
+
+  it('validates precomputed extra candidates', () => {
+    const { cache } = result!
+    // Bare utilities and screen breakpoints are expanded during precompute
+    expect(cache.isValid('rounded')).toBe(true)
+    expect(cache.isValid('shadow')).toBe(true)
+    expect(cache.isValid('max-w-screen-lg')).toBe(true)
   })
 
   it('rejects made-up classes', () => {

@@ -1,4 +1,4 @@
-import { type PrecomputedData, validateCandidatesSync } from './sync-loader'
+import { type PrecomputedData } from './sync-loader'
 import { roundRemValue } from '../utils/floating-point'
 import { extractUtility, hasArbitraryValue } from '../utils/class-parser'
 
@@ -17,7 +17,7 @@ export class DesignSystemCache {
   private variantOrderMap = new Map<string, number>()
   private arbitraryEquivMap = new Map<string, string>()
   private _validClasses: string[] = []
-  private _entryPoint: string = ''
+  private _knownPrefixes: Set<string> | null = null
 
   static fromPrecomputed(data: PrecomputedData): DesignSystemCache {
     const cache = new DesignSystemCache()
@@ -92,8 +92,15 @@ export class DesignSystemCache {
     return className
   }
 
-  setEntryPoint(entryPoint: string): void {
-    this._entryPoint = entryPoint
+  private getKnownPrefixes(): Set<string> {
+    if (!this._knownPrefixes) {
+      this._knownPrefixes = new Set<string>()
+      for (const cls of this._validClasses) {
+        const dash = cls.lastIndexOf('-')
+        if (dash > 0) this._knownPrefixes.add(cls.slice(0, dash))
+      }
+    }
+    return this._knownPrefixes
   }
 
   isValid(className: string): boolean {
@@ -114,31 +121,17 @@ export class DesignSystemCache {
       if (this.validitySet.has(base)) return true
     }
 
+    // Dynamic numeric values: w-45, min-h-17.5, gap-13, etc.
+    // Tailwind v4 accepts any number for known utility prefixes
+    const numericMatch = /^(.+)-(\d+\.?\d*)$/.exec(bare)
+    if (numericMatch && this.getKnownPrefixes().has(numericMatch[1])) {
+      return true
+    }
+
     // Arbitrary values (bracket syntax) are considered valid
     if (hasArbitraryValue(className)) return true
 
     return false
-  }
-
-  /**
-   * Validates classes not in the precomputed list via candidatesToCss().
-   * Results are cached in validitySet for future calls.
-   */
-  validateUnknown(classes: string[]): Set<string> {
-    if (classes.length === 0 || !this._entryPoint) return new Set(classes)
-
-    const results = validateCandidatesSync(this._entryPoint, classes)
-    const invalid = new Set<string>()
-
-    for (let i = 0; i < classes.length; i++) {
-      if (results[i]) {
-        this.validitySet.add(classes[i])
-      } else {
-        invalid.add(classes[i])
-      }
-    }
-
-    return invalid
   }
 
   getOrder(className: string): bigint | null {
