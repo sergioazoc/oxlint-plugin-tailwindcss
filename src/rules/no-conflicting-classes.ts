@@ -69,7 +69,7 @@ export const noConflictingClasses = defineRule({
           const COMPLEMENTARY_GROUPS = [
             /^(?:from|via|to)-/, // gradient stops
             /^(?:shadow|ring|ring-offset)-/, // box-shadow composition
-            /^(?:transition|duration|ease|delay)-/, // transition composition
+            /^(?:transition|duration|ease|delay)(?:-|$)/, // transition composition
             /^-?(?:translate|scale|rotate|skew)-/, // transform axis composition (x + y)
             /^prose(?:-|$)/, // prose + prose-sm/lg/xl modifiers + max-w override
           ]
