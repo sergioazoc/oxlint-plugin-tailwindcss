@@ -65,22 +65,31 @@ export const noConflictingClasses = defineRule({
             propsMap.set(cls, props)
           }
 
-          // Gradient utilities (from-*, via-*, to-*) are complementary, not conflicting
-          const gradientRe = /^(?:from|via|to)-/
+          // Utilities that share a CSS property but are designed to compose
+          const COMPLEMENTARY_GROUPS = [
+            /^(?:from|via|to)-/, // gradient stops
+            /^(?:shadow|ring|ring-offset)-/, // box-shadow composition
+          ]
           // divide-* targets child elements (> * + *), not the element itself
-          const divideRe = /^divide-/
-          const borderRe = /^border(?:-[trblxyse])?-/
+          const CROSS_SELECTOR_PAIRS: [RegExp, RegExp][] = [
+            [/^divide-/, /^border(?:-[trblxyse])?-/],
+          ]
 
           function shouldSkipPair(a: string, b: string): boolean {
             let ua = extractUtility(a)
             let ub = extractUtility(b)
             if (ua.startsWith('!')) ua = ua.slice(1)
+            else if (ua.endsWith('!')) ua = ua.slice(0, -1)
             if (ub.startsWith('!')) ub = ub.slice(1)
-            // Gradient pairs are complementary
-            if (gradientRe.test(ua) && gradientRe.test(ub)) return true
-            // divide-* vs border-* target different elements
-            if ((divideRe.test(ua) && borderRe.test(ub)) || (divideRe.test(ub) && borderRe.test(ua)))
-              return true
+            else if (ub.endsWith('!')) ub = ub.slice(0, -1)
+            // Complementary utilities within the same group
+            for (const re of COMPLEMENTARY_GROUPS) {
+              if (re.test(ua) && re.test(ub)) return true
+            }
+            // Utilities that target different selectors
+            for (const [reA, reB] of CROSS_SELECTOR_PAIRS) {
+              if ((reA.test(ua) && reB.test(ub)) || (reA.test(ub) && reB.test(ua))) return true
+            }
             return false
           }
 

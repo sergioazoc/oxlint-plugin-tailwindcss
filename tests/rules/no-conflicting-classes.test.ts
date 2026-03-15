@@ -24,6 +24,9 @@ ruleTester.run('no-conflicting-classes', noConflictingClasses, {
     { code: '<div className="from-blue-500 via-purple-500 to-pink-500" />', filename: 'test.tsx' },
     // divide-* targets children (> * + *), border-* targets the element itself
     { code: '<div className="divide-border border-input" />', filename: 'test.tsx' },
+    // shadow-* and ring-* compose via CSS custom properties in box-shadow
+    { code: '<div className="shadow-sm ring-2" />', filename: 'test.tsx' },
+    { code: '<div className="shadow-lg ring-1 ring-offset-2" />', filename: 'test.tsx' },
   ],
   invalid: [
     {
