@@ -25,6 +25,12 @@ ruleTester.run('no-unknown-classes', noUnknownClasses, {
     { code: 'cn("flex", "items-center")', filename: 'test.tsx' },
     // Variable: name doesn't match pattern — should be ignored
     { code: 'const foo = "fex"', filename: 'test.tsx' },
+    // Important modifier on valid class
+    { code: '<div className="!flex" />', filename: 'test.tsx' },
+    { code: '<div className="!items-center" />', filename: 'test.tsx' },
+    // Suffix ! (Tailwind CSS v4 important syntax)
+    { code: '<div className="flex!" />', filename: 'test.tsx' },
+    { code: '<div className="items-center!" />', filename: 'test.tsx' },
   ],
   invalid: [
     {
@@ -47,6 +53,22 @@ ruleTester.run('no-unknown-classes', noUnknownClasses, {
       code: 'const classes = "fex"',
       filename: 'test.tsx',
       errors: [{ messageId: 'unknownWithSuggestion' }],
+    },
+    // Important modifier on invalid class
+    {
+      code: '<div className="!itms-center" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'unknownWithSuggestion' }],
+    },
+    // Multiple unknown classes in same string
+    {
+      code: '<div className="itms-center fex bg-blu-500" />',
+      filename: 'test.tsx',
+      errors: [
+        { messageId: 'unknownWithSuggestion' },
+        { messageId: 'unknownWithSuggestion' },
+        { messageId: 'unknownWithSuggestion' },
+      ],
     },
   ],
 })

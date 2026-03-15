@@ -46,5 +46,12 @@ ruleTester.run('enforce-canonical', enforceCanonical, {
       errors: [{ messageId: 'nonCanonical' }],
       output: '<div className={`${base} m-0`} />',
     },
+    // Important modifier with non-canonical class
+    {
+      code: '<div className="!-m-0" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'nonCanonical' }],
+      output: '<div className="!m-0" />',
+    },
   ],
 })

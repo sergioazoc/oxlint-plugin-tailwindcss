@@ -32,5 +32,27 @@ ruleTester.run('no-conflicting-classes', noConflictingClasses, {
       filename: 'test.tsx',
       errors: [{ messageId: 'conflict' }],
     },
+    // Three-way conflict
+    {
+      code: '<div className="text-red-500 text-blue-500 text-green-500" />',
+      filename: 'test.tsx',
+      errors: [
+        { messageId: 'conflict' },
+        { messageId: 'conflict' },
+        { messageId: 'conflict' },
+      ],
+    },
+    // Same variant conflict
+    {
+      code: '<div className="hover:bg-red-500 hover:bg-blue-500" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'conflict' }],
+    },
+    // ! important modifier conflict
+    {
+      code: '<div className="!text-red-500 !text-blue-500" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'conflict' }],
+    },
   ],
 })

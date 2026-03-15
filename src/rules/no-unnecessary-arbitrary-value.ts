@@ -10,8 +10,7 @@ import {
 } from '../utils/extractors'
 import { splitClasses } from '../utils/class-splitter'
 import { hasArbitraryValue, splitUtilityAndVariant } from '../utils/class-parser'
-import { getLoadedDesignSystem } from '../design-system/loader'
-import { safeOptions, safeSettings } from '../types'
+import { createLazyLoader } from '../design-system/loader'
 
 export const noUnnecessaryArbitraryValue = defineRule({
   meta: {
@@ -35,13 +34,12 @@ export const noUnnecessaryArbitraryValue = defineRule({
     },
   },
   createOnce(context) {
-    const options = safeOptions<{ entryPoint?: string }>(context)
-    const result = getLoadedDesignSystem(options?.entryPoint, safeSettings(context))
-    if (!result) return {}
-
-    const { cache } = result
+    const getDS = createLazyLoader(context)
 
     function check(locations: ClassLocation[]) {
+      const ds = getDS()
+      if (!ds) return
+      const { cache } = ds
       for (const loc of locations) {
         const classes = splitClasses(loc.value)
         const offending: Array<{ cls: string; replacement: string }> = []
@@ -50,10 +48,24 @@ export const noUnnecessaryArbitraryValue = defineRule({
           if (!hasArbitraryValue(cls)) continue
 
           const { utility, variant } = splitUtilityAndVariant(cls)
-          const named = cache.getNamedEquivalent(utility)
+
+          // Strip ! (important) for lookup — prefix or suffix
+          const hasImportantPrefix = utility.startsWith('!')
+          const hasImportantSuffix = !hasImportantPrefix && utility.endsWith('!')
+          const bareUtility = hasImportantPrefix
+            ? utility.slice(1)
+            : hasImportantSuffix
+              ? utility.slice(0, -1)
+              : utility
+
+          const named = cache.getNamedEquivalent(bareUtility)
           if (!named) continue
 
-          offending.push({ cls, replacement: variant + named })
+          offending.push({
+            cls,
+            replacement:
+              variant + (hasImportantPrefix ? '!' : '') + named + (hasImportantSuffix ? '!' : ''),
+          })
         }
 
         if (offending.length === 0) continue

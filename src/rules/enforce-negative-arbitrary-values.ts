@@ -13,19 +13,29 @@ import { splitUtilityAndVariant } from '../utils/class-parser'
 
 function fixClass(cls: string): string | null {
   const { utility, variant } = splitUtilityAndVariant(cls)
-  if (!utility.startsWith('-')) return null
 
-  const bracketOpen = utility.indexOf('[')
+  // Strip ! (important) for analysis — prefix or suffix
+  const hasImportantPrefix = utility.startsWith('!')
+  const hasImportantSuffix = !hasImportantPrefix && utility.endsWith('!')
+  const bare = hasImportantPrefix
+    ? utility.slice(1)
+    : hasImportantSuffix
+      ? utility.slice(0, -1)
+      : utility
+
+  if (!bare.startsWith('-')) return null
+
+  const bracketOpen = bare.indexOf('[')
   if (bracketOpen === -1) return null
 
-  const bracketClose = utility.lastIndexOf(']')
+  const bracketClose = bare.lastIndexOf(']')
   if (bracketClose === -1 || bracketClose < bracketOpen) return null
 
-  const innerValue = utility.slice(bracketOpen + 1, bracketClose)
+  const innerValue = bare.slice(bracketOpen + 1, bracketClose)
   if (innerValue.startsWith('-')) return null
 
-  const baseUtility = utility.slice(1, bracketOpen)
-  return `${variant}${baseUtility}[-${innerValue}]`
+  const baseUtility = bare.slice(1, bracketOpen)
+  return `${variant}${hasImportantPrefix ? '!' : ''}${baseUtility}[-${innerValue}]${hasImportantSuffix ? '!' : ''}`
 }
 
 /**

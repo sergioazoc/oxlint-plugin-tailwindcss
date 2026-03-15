@@ -10,8 +10,8 @@ import {
 } from '../utils/extractors'
 import { splitClasses } from '../utils/class-splitter'
 import { extractVariants, extractUtility } from '../utils/class-parser'
-import { safeOptions, safeSettings } from '../types'
-import { getLoadedDesignSystem } from '../design-system/loader'
+import { safeOptions } from '../types'
+import { createLazyLoader } from '../design-system/loader'
 
 interface Options {
   entryPoint?: string
@@ -126,62 +126,53 @@ export const consistentVariantOrder = defineRule({
     },
   },
   createOnce(context) {
-    // Try to load the design system for dynamic variant ordering
-    const dsResult = getLoadedDesignSystem(undefined, safeSettings(context))
-    const dsCache = dsResult?.cache ?? null
+    const getDS = createLazyLoader(context)
 
     interface CompiledConfig {
       priorityMap: Map<string, number>
       fallbackPriority: number
+      dsCache: import('../design-system/cache').DesignSystemCache | null
     }
 
     let _config: CompiledConfig | null = null
     function getConfig(): CompiledConfig {
       if (_config === null) {
         const options = safeOptions<Options>(context)
+        const dsCache = getDS()?.cache ?? null
         const priorityMap = new Map<string, number>()
 
         if (options?.order) {
-          // 1. User-specified order takes highest priority
           for (let i = 0; i < options.order.length; i++) {
             priorityMap.set(options.order[i], i)
           }
-          _config = { priorityMap, fallbackPriority: options.order.length }
+          _config = { priorityMap, fallbackPriority: options.order.length, dsCache }
         } else if (dsCache && dsCache.hasVariantOrder()) {
-          // 2. Design system variant order
           for (const variant of DEFAULT_VARIANT_ORDER) {
             const p = dsCache.getVariantPriority(variant)
             if (p !== null) priorityMap.set(variant, p)
           }
-          // Also include DS variants not in DEFAULT_VARIANT_ORDER
-          // by iterating all valid classes isn't needed — the DS provides all variants
-          // We use the DS cache directly in getVariantPriority below
-          _config = { priorityMap, fallbackPriority: Number.MAX_SAFE_INTEGER }
+          _config = { priorityMap, fallbackPriority: Number.MAX_SAFE_INTEGER, dsCache }
         } else {
-          // 3. Static fallback
           for (let i = 0; i < DEFAULT_VARIANT_ORDER.length; i++) {
             priorityMap.set(DEFAULT_VARIANT_ORDER[i], i)
           }
-          _config = { priorityMap, fallbackPriority: DEFAULT_VARIANT_ORDER.length }
+          _config = { priorityMap, fallbackPriority: DEFAULT_VARIANT_ORDER.length, dsCache }
         }
       }
       return _config
     }
 
     function getVariantPriority(variant: string): number {
-      const { priorityMap, fallbackPriority } = getConfig()
+      const { priorityMap, fallbackPriority, dsCache } = getConfig()
       const priority = priorityMap.get(variant)
       if (priority !== undefined) return priority
 
-      // When using DS, check the cache directly for variants not in the pre-built map
       if (dsCache && dsCache.hasVariantOrder()) {
         const dsPriority = dsCache.getVariantPriority(variant)
         if (dsPriority !== null) return dsPriority
       }
 
-      // Arbitrary variants sort before all named variants
       if (variant.startsWith('[')) return -1
-      // Unknown variants go to the end
       return fallbackPriority
     }
 

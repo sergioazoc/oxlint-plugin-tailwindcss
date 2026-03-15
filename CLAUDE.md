@@ -24,10 +24,12 @@ DS-dependent rules: `no-unknown-classes`, `no-conflicting-classes`, `no-deprecat
 
 ## Key Constraints
 
-- **Options timing**: `entryPoint` is the only option read at `createOnce()` top level. ALL other options must be read lazily inside `check()` via `safeOptions()` — they're null in `createOnce()`.
-- **`safeOptions()` / `safeSettings()`**: Uses try/catch for backwards compat with oxlint <1.31.0. Always use these instead of accessing `context.options` or `context.settings` directly — both throw in `createOnce()`.
-- **Entry point resolution**: rule option `entryPoint` > `settings.tailwindcss.entryPoint` > auto-detect.
-- **Graceful degradation**: If the design system can't load, return `{}` from `createOnce()`. Never crash.
+- **Lazy DS loading**: `context.settings` and `context.filename` throw in `createOnce()`. DS-dependent rules use `createLazyLoader(context)` which defers loading to the first visitor call where full context is available. Auto-detect uses `context.filename` to walk up from the linted file.
+- **Options timing**: ALL options must be read lazily inside `check()` via `safeOptions()` — they're null in `createOnce()`.
+- **Entry point resolution**: rule option `entryPoint` > `settings.tailwindcss.entryPoint` > auto-detect (from linted file path).
+- **Graceful degradation**: If the design system can't load, DS-dependent rules silently skip (return from `check()`). Never crash.
+- **`!` (important) modifier**: Tailwind supports prefix (`!flex`) and suffix (`flex!`). ALL rules that do class lookups or transformations MUST strip `!` before lookups and re-add it in the same position. Cache methods (`getOrder`, `canonicalize`, `getCssProperties`, `getNamedEquivalent`) handle `!` internally via `stripImportant()`. Rules doing direct string comparisons (e.g., against `DEPRECATED_MAP`) must strip manually.
+- **Disk cache**: `sync-loader.ts` caches precomputed DS JSON in `/tmp/oxlint-tailwindcss/` keyed by `md5(path:mtime)`. Invalidates automatically when CSS changes.
 - **`canonicalizeCandidates()`**: Deduplicates results — must be called one class at a time, NOT in batch.
 - **`getClassList()` gaps**: Some valid classes (`grow-1`, `border-1`) are missing from the list. Arbitrary values handled by heuristic.
 - **Floating point**: All rem/em/px operations go through `roundRemValue()`.

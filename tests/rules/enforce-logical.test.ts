@@ -50,5 +50,12 @@ ruleTester.run('enforce-logical', enforceLogical, {
       errors: [{ messageId: 'useLogical' }],
       output: '<div className={`${base} ms-4`} />',
     },
+    // ! important modifier
+    {
+      code: '<div className="!ml-4" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'useLogical' }],
+      output: '<div className="!ms-4" />',
+    },
   ],
 })

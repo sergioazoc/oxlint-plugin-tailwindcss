@@ -56,7 +56,9 @@ export const noArbitraryValue = defineRule({
         for (const cls of classes) {
           if (!hasArbitraryValue(cls)) continue
 
-          const utility = extractUtility(cls)
+          let utility = extractUtility(cls)
+          if (utility.startsWith('!')) utility = utility.slice(1)
+          else if (utility.endsWith('!')) utility = utility.slice(0, -1)
           if (isAllowed(utility)) continue
 
           context.report({

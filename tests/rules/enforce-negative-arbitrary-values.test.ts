@@ -46,5 +46,12 @@ ruleTester.run('enforce-negative-arbitrary-values', enforceNegativeArbitraryValu
       errors: [{ messageId: 'moveNegative' }],
       output: '<div className={`${base} top-[-5px]`} />',
     },
+    // Important modifier with negative arbitrary
+    {
+      code: '<div className="!-top-[5px]" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'moveNegative' }],
+      output: '<div className="!top-[-5px]" />',
+    },
   ],
 })

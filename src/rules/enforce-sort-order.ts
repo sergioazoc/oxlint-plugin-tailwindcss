@@ -10,8 +10,8 @@ import {
 } from '../utils/extractors'
 import { splitClasses } from '../utils/class-splitter'
 import { splitUtilityAndVariant } from '../utils/class-parser'
-import { getLoadedDesignSystem } from '../design-system/loader'
-import { safeOptions, safeSettings } from '../types'
+import { createLazyLoader } from '../design-system/loader'
+import { safeOptions } from '../types'
 
 interface Options {
   entryPoint?: string
@@ -41,11 +41,7 @@ export const enforceSortOrder = defineRule({
     },
   },
   createOnce(context) {
-    const options = safeOptions<Options>(context)
-    const result = getLoadedDesignSystem(options?.entryPoint, safeSettings(context))
-    if (!result) return {}
-
-    const { cache } = result
+    const getDS = createLazyLoader(context)
 
     let _mode: 'default' | 'strict' | null = null
     function getMode(): 'default' | 'strict' {
@@ -56,68 +52,70 @@ export const enforceSortOrder = defineRule({
       return _mode
     }
 
-    function sortDefault(classes: string[]): string[] {
-      const ordered = cache.getClassOrder(classes)
-      const sorted = [...ordered].sort((a, b) => {
-        const orderA = a[1] ?? 0n
-        const orderB = b[1] ?? 0n
-        if (orderA < orderB) return -1
-        if (orderA > orderB) return 1
-        return 0
-      })
-      return sorted.map(([name]) => name)
-    }
+    function check(locations: ClassLocation[]) {
+      const ds = getDS()
+      if (!ds) return
+      const { cache } = ds
+      const mode = getMode()
 
-    function sortStrict(classes: string[]): string[] {
-      // Group classes by variant prefix
-      const groups = new Map<string, string[]>()
-      const groupOrder: string[] = []
-      for (const cls of classes) {
-        const { variant } = splitUtilityAndVariant(cls)
-        if (!groups.has(variant)) {
-          groups.set(variant, [])
-          groupOrder.push(variant)
-        }
-        groups.get(variant)!.push(cls)
-      }
-
-      // Sort classes within each group by DS sort order
-      for (const [, groupClasses] of groups) {
-        const ordered = cache.getClassOrder(groupClasses)
-        ordered.sort((a, b) => {
+      function sortDefault(classes: string[]): string[] {
+        const ordered = cache.getClassOrder(classes)
+        const sorted = [...ordered].sort((a, b) => {
           const orderA = a[1] ?? 0n
           const orderB = b[1] ?? 0n
           if (orderA < orderB) return -1
           if (orderA > orderB) return 1
           return 0
         })
-        groupClasses.length = 0
-        for (const [name] of ordered) groupClasses.push(name)
+        return sorted.map(([name]) => name)
       }
 
-      // Sort groups: no-variant first, then by variant priority
-      const sortedGroupKeys = [...groups.keys()].sort((a, b) => {
-        if (a === '' && b !== '') return -1
-        if (a !== '' && b === '') return 1
-        if (a === '' && b === '') return 0
+      function sortStrict(classes: string[]): string[] {
+        const groups = new Map<string, string[]>()
+        const groupOrder: string[] = []
+        for (const cls of classes) {
+          const { variant } = splitUtilityAndVariant(cls)
+          if (!groups.has(variant)) {
+            groups.set(variant, [])
+            groupOrder.push(variant)
+          }
+          groups.get(variant)!.push(cls)
+        }
 
-        // Strip trailing colon from variant prefix for priority lookup
-        const variantA = a.slice(0, -1)
-        const variantB = b.slice(0, -1)
-        const prioA = cache.getVariantPriority(variantA) ?? Number.MAX_SAFE_INTEGER
-        const prioB = cache.getVariantPriority(variantB) ?? Number.MAX_SAFE_INTEGER
-        return prioA - prioB
-      })
+        for (const [, groupClasses] of groups) {
+          const ordered = cache.getClassOrder(groupClasses)
+          ordered.sort((a, b) => {
+            const orderA = a[1] ?? 0n
+            const orderB = b[1] ?? 0n
+            if (orderA < orderB) return -1
+            if (orderA > orderB) return 1
+            return 0
+          })
+          groupClasses.length = 0
+          for (const [name] of ordered) groupClasses.push(name)
+        }
 
-      const result: string[] = []
-      for (const key of sortedGroupKeys) {
-        result.push(...groups.get(key)!)
+        const sortedGroupKeys = [...groups.keys()].sort((a, b) => {
+          if (a === '' && b !== '') return -1
+          if (a !== '' && b === '') return 1
+          if (a === '' && b === '') return 0
+
+          // For compound variant keys like "dark:hover:", use the first variant for ordering
+          const variantA = a.slice(0, -1)
+          const variantB = b.slice(0, -1)
+          const firstA = variantA.includes(':') ? variantA.split(':')[0] : variantA
+          const firstB = variantB.includes(':') ? variantB.split(':')[0] : variantB
+          const prioA = cache.getVariantPriority(firstA) ?? Number.MAX_SAFE_INTEGER
+          const prioB = cache.getVariantPriority(firstB) ?? Number.MAX_SAFE_INTEGER
+          return prioA - prioB
+        })
+
+        const result: string[] = []
+        for (const key of sortedGroupKeys) {
+          result.push(...groups.get(key)!)
+        }
+        return result
       }
-      return result
-    }
-
-    function check(locations: ClassLocation[]) {
-      const mode = getMode()
       for (const loc of locations) {
         const classes = splitClasses(loc.value)
         if (classes.length < 2) continue

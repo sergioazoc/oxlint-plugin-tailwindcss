@@ -34,6 +34,13 @@ ruleTester.run('enforce-sort-order', enforceSortOrder, {
       errors: [{ messageId: 'unsorted' }],
       output: '<div className="flex items-center p-4" />',
     },
+    // Important modifier preserves correct sort order
+    {
+      code: '<div className="!text-red-500 !flex" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'unsorted' }],
+      output: '<div className="!flex !text-red-500" />',
+    },
     // Template literal: preserve trailing space before expression
     {
       code: '<div className={`text-red-500 flex ${x}`} />',
@@ -75,6 +82,14 @@ ruleTester.run('enforce-sort-order (strict)', enforceSortOrder, {
       options: [{ mode: 'strict' }],
       errors: [{ messageId: 'unsorted' }],
       output: '<div className="m-2 p-4 hover:bg-blue-500 hover:text-red-500" />',
+    },
+    // Multi-variant group ordering
+    {
+      code: '<div className="dark:hover:text-white flex dark:hover:bg-black" />',
+      filename: 'test.tsx',
+      options: [{ mode: 'strict' }],
+      errors: [{ messageId: 'unsorted' }],
+      output: '<div className="flex dark:hover:bg-black dark:hover:text-white" />',
     },
   ],
 })

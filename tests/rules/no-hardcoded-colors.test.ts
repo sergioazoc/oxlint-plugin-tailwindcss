@@ -10,6 +10,8 @@ ruleTester.run('no-hardcoded-colors', noHardcodedColors, {
     { code: '<div className="w-[200px]" />', filename: 'test.tsx' },
     { code: '<div className="h-[calc(100%-2rem)]" />', filename: 'test.tsx' },
     { code: '<div className="tracking-[0.5em]" />', filename: 'test.tsx' },
+    // CSS variable is NOT a hardcoded color
+    { code: '<div className="bg-[var(--primary)]" />', filename: 'test.tsx' },
   ],
   invalid: [
     {
@@ -39,6 +41,30 @@ ruleTester.run('no-hardcoded-colors', noHardcodedColors, {
     },
     {
       code: '<div className="hover:bg-[#ff5733]" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'noHardcoded' }],
+    },
+    // Important modifier with hardcoded color
+    {
+      code: '<div className="!bg-[#ff5733]" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'noHardcoded' }],
+    },
+    // oklch
+    {
+      code: '<div className="bg-[oklch(0.5_0.2_240)]" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'noHardcoded' }],
+    },
+    // oklab
+    {
+      code: '<div className="text-[oklab(0.5_0.1_-0.1)]" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'noHardcoded' }],
+    },
+    // hwb
+    {
+      code: '<div className="border-[hwb(120_10%_20%)]" />',
       filename: 'test.tsx',
       errors: [{ messageId: 'noHardcoded' }],
     },

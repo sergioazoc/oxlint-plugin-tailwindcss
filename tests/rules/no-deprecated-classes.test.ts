@@ -62,5 +62,21 @@ ruleTester.run('no-deprecated-classes', noDeprecatedClasses, {
       errors: [{ messageId: 'deprecated' }],
       output: '<div className={`${base} grow`} />',
     },
+    // Multiple deprecated classes in the same string — all fixed at once
+    {
+      code: '<div className="flex-grow flex-shrink" />',
+      filename: 'test.tsx',
+      options: [{ entryPoint: ENTRY_POINT }],
+      errors: [{ messageId: 'deprecated' }, { messageId: 'deprecated' }],
+      output: '<div className="grow shrink" />',
+    },
+    // Deprecated class with important modifier
+    {
+      code: '<div className="!flex-grow" />',
+      filename: 'test.tsx',
+      options: [{ entryPoint: ENTRY_POINT }],
+      errors: [{ messageId: 'deprecated' }],
+      output: '<div className="!grow" />',
+    },
   ],
 })

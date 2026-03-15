@@ -84,9 +84,15 @@ export const enforceShorthand = defineRule({
         const classSet = new Set(classes)
 
         // Extract all unique values used in the classes
+        // Strip ! (prefix or suffix) for regex matching
         const values = new Set<string>()
         for (const cls of classes) {
-          const match = VALUE_RE.exec(cls)
+          const bare = cls.startsWith('!')
+            ? cls.slice(1)
+            : cls.endsWith('!')
+              ? cls.slice(0, -1)
+              : cls
+          const match = VALUE_RE.exec(bare)
           if (match) values.add(match[1])
         }
 
@@ -94,22 +100,31 @@ export const enforceShorthand = defineRule({
           const rules = createShorthandRules(value)
 
           for (const rule of rules) {
-            if (rule.parts.every((p) => classSet.has(p))) {
-              const remaining = classes.filter((c) => !rule.parts.includes(c))
-              remaining.push(rule.replacement)
+            // Check with ! modifier: all parts must share the same modifier
+            const hasImportantPrefix = rule.parts.every((p) => classSet.has(`!${p}`))
+            const hasImportantSuffix =
+              !hasImportantPrefix && rule.parts.every((p) => classSet.has(`${p}!`))
+            const hasPlain = rule.parts.every((p) => classSet.has(p))
 
-              context.report({
-                node: loc.node,
-                messageId: 'shorthand',
-                data: {
-                  parts: rule.parts.map((p) => `"${p}"`).join(', '),
-                  replacement: rule.replacement,
-                },
-                fix(fixer) {
-                  return fixer.replaceTextRange(loc.range, preserveSpaces(loc, remaining.join(' ')))
-                },
-              })
-            }
+            if (!hasImportantPrefix && !hasImportantSuffix && !hasPlain) continue
+
+            const importantStart = hasImportantPrefix ? '!' : ''
+            const importantEnd = hasImportantSuffix ? '!' : ''
+            const matchParts = rule.parts.map((p) => `${importantStart}${p}${importantEnd}`)
+            const remaining = classes.filter((c) => !matchParts.includes(c))
+            remaining.push(`${importantStart}${rule.replacement}${importantEnd}`)
+
+            context.report({
+              node: loc.node,
+              messageId: 'shorthand',
+              data: {
+                parts: matchParts.map((p) => `"${p}"`).join(', '),
+                replacement: `${importantStart}${rule.replacement}${importantEnd}`,
+              },
+              fix(fixer) {
+                return fixer.replaceTextRange(loc.range, preserveSpaces(loc, remaining.join(' ')))
+              },
+            })
           }
         }
       }

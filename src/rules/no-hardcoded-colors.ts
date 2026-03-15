@@ -118,7 +118,9 @@ export const noHardcodedColors = defineRule({
           if (allowlist.has(cls)) continue
           if (!hasArbitraryValue(cls)) continue
 
-          const utility = extractUtility(cls)
+          let utility = extractUtility(cls)
+          if (utility.startsWith('!')) utility = utility.slice(1)
+          else if (utility.endsWith('!')) utility = utility.slice(0, -1)
           if (!isColorUtility(utility)) continue
 
           const value = getArbitraryValue(cls)

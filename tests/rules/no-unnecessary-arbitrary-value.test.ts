@@ -52,5 +52,12 @@ ruleTester.run('no-unnecessary-arbitrary-value', noUnnecessaryArbitraryValue, {
       errors: [{ messageId: 'unnecessaryArbitrary' }],
       output: '<div className={`${base} h-auto`} />',
     },
+    // Important modifier with unnecessary arbitrary
+    {
+      code: '<div className="!h-[auto]" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'unnecessaryArbitrary' }],
+      output: '<div className="!h-auto" />',
+    },
   ],
 })

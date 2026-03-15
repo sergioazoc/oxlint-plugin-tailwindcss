@@ -9,8 +9,7 @@ import {
   type ClassLocation,
 } from '../utils/extractors'
 import { splitClasses } from '../utils/class-splitter'
-import { getLoadedDesignSystem } from '../design-system/loader'
-import { safeOptions, safeSettings } from '../types'
+import { createLazyLoader } from '../design-system/loader'
 
 export const enforceCanonical = defineRule({
   meta: {
@@ -33,13 +32,12 @@ export const enforceCanonical = defineRule({
     },
   },
   createOnce(context) {
-    const options = safeOptions<{ entryPoint?: string }>(context)
-    const result = getLoadedDesignSystem(options?.entryPoint, safeSettings(context))
-    if (!result) return {}
-
-    const { cache } = result
+    const getDS = createLazyLoader(context)
 
     function check(locations: ClassLocation[]) {
+      const ds = getDS()
+      if (!ds) return
+      const { cache } = ds
       for (const loc of locations) {
         const classes = splitClasses(loc.value)
 

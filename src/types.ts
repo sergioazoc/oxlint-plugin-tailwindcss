@@ -41,3 +41,16 @@ export function safeSettings(context: {
     return undefined
   }
 }
+
+/**
+ * Safely read context.filename.
+ *
+ * Like `safeSettings`, `context.filename` may not be accessible in `createOnce()`.
+ */
+export function safeFilename(context: { filename?: string }): string | undefined {
+  try {
+    return context.filename ?? undefined
+  } catch {
+    return undefined
+  }
+}

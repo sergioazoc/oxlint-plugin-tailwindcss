@@ -9,8 +9,7 @@ import {
 } from '../utils/extractors'
 import { splitClasses } from '../utils/class-splitter'
 import { extractUtility, getVariantPrefix } from '../utils/class-parser'
-import { getLoadedDesignSystem } from '../design-system/loader'
-import { safeOptions, safeSettings } from '../types'
+import { createLazyLoader } from '../design-system/loader'
 
 export const noConflictingClasses = defineRule({
   meta: {
@@ -33,13 +32,12 @@ export const noConflictingClasses = defineRule({
     },
   },
   createOnce(context) {
-    const options = safeOptions<{ entryPoint?: string }>(context)
-    const result = getLoadedDesignSystem(options?.entryPoint, safeSettings(context))
-    if (!result) return {}
-
-    const { cache } = result
+    const getDS = createLazyLoader(context)
 
     function check(locations: ClassLocation[]) {
+      const ds = getDS()
+      if (!ds) return
+      const { cache } = ds
       for (const loc of locations) {
         const classes = splitClasses(loc.value)
         if (classes.length < 2) continue
@@ -59,7 +57,10 @@ export const noConflictingClasses = defineRule({
           // For each pair of classes in the same variant, compare CSS properties
           const propsMap = new Map<string, string[]>()
           for (const cls of variantClasses) {
-            const utility = extractUtility(cls)
+            let utility = extractUtility(cls)
+            // Strip ! (important) for lookup — prefix or suffix
+            if (utility.startsWith('!')) utility = utility.slice(1)
+            else if (utility.endsWith('!')) utility = utility.slice(0, -1)
             const props = cache.getCssProperties(utility)
             propsMap.set(cls, props)
           }

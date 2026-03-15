@@ -7,6 +7,8 @@ ruleTester.run('no-duplicate-classes', noDuplicateClasses, {
   valid: [
     { code: '<div className="flex items-center" />', filename: 'test.tsx' },
     { code: '<div className="flex hover:flex" />', filename: 'test.tsx' },
+    // Same utility different variants is NOT a duplicate
+    { code: '<div className="flex hover:flex dark:flex" />', filename: 'test.tsx' },
     { code: '<div class="p-4 m-2 text-red-500" />', filename: 'test.tsx' },
     { code: 'cn("flex", "items-center")', filename: 'test.tsx' },
     // cva/tv: defaultVariants should be ignored (not class strings)
@@ -128,6 +130,20 @@ ruleTester.run('no-duplicate-classes', noDuplicateClasses, {
       filename: 'test.tsx',
       errors: [{ messageId: 'duplicate' }],
       output: '<div className={`${base} flex`} />',
+    },
+    // Duplicate with variant
+    {
+      code: '<div className="hover:flex hover:flex items-center" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'duplicate' }],
+      output: '<div className="hover:flex items-center" />',
+    },
+    // Triple duplicate
+    {
+      code: '<div className="flex flex flex" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'duplicate' }, { messageId: 'duplicate' }],
+      output: '<div className="flex" />',
     },
   ],
 })

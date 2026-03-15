@@ -58,6 +58,7 @@ const KNOWN_PREFIXES = [
 function getUtilityPrefix(utility: string): string {
   let u = utility
   if (u.startsWith('!')) u = u.slice(1)
+  else if (u.endsWith('!')) u = u.slice(0, -1)
   if (u.startsWith('-')) u = u.slice(1)
 
   for (const prefix of KNOWN_PREFIXES) {

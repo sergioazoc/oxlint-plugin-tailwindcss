@@ -76,6 +76,29 @@ describe('Auto-detect entry point', () => {
     CANDIDATE_NAMES.map((name) => (dir === '.' ? `${name}.css` : `${dir}/${name}.css`)),
   )
 
+  it('finds app/tailwind.css in monorepo from deep file path', () => {
+    // Simulates: monorepo/apps/dashboard/app/tailwind.css
+    createFile('package.json', '{}')
+    createFile('apps/dashboard/package.json', '{}')
+    createFile('apps/dashboard/app/tailwind.css', '@import "tailwindcss";')
+    createFile('apps/dashboard/src/components/Button.tsx', '')
+
+    const result = autoDetectEntryPoint(
+      join(TMP, 'apps/dashboard/src/components/Button.tsx'),
+    )
+    expect(result).toBe(join(TMP, 'apps/dashboard/app/tailwind.css'))
+  })
+
+  it('does NOT find monorepo sibling entry when searching from root', () => {
+    createFile('package.json', '{}')
+    createFile('apps/dashboard/package.json', '{}')
+    createFile('apps/dashboard/app/tailwind.css', '@import "tailwindcss";')
+
+    // Searching from root should NOT find a nested package's CSS
+    const result = autoDetectEntryPoint(join(TMP, 'some-file.ts'))
+    expect(result).toBeNull()
+  })
+
   it.each(allCandidates)('finds %s', (candidatePath) => {
     createFile('package.json', '{}')
     createFile(candidatePath, '@import "tailwindcss";')

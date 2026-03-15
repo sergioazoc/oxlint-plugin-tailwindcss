@@ -50,10 +50,20 @@ export const enforceLogical = defineRule({
   createOnce(context) {
     function convertClass(cls: string): string | null {
       const { utility, variant } = splitUtilityAndVariant(cls)
+
+      // Strip ! (important) for lookup — prefix or suffix
+      const hasImportantPrefix = utility.startsWith('!')
+      const hasImportantSuffix = !hasImportantPrefix && utility.endsWith('!')
+      const bareUtility = hasImportantPrefix
+        ? utility.slice(1)
+        : hasImportantSuffix
+          ? utility.slice(0, -1)
+          : utility
+
       for (const [physical, logical] of Object.entries(PHYSICAL_TO_LOGICAL)) {
-        if (utility === physical || utility.startsWith(`${physical}-`)) {
-          const suffix = utility.slice(physical.length)
-          return `${variant}${logical}${suffix}`
+        if (bareUtility === physical || bareUtility.startsWith(`${physical}-`)) {
+          const suffix = bareUtility.slice(physical.length)
+          return `${variant}${hasImportantPrefix ? '!' : ''}${logical}${suffix}${hasImportantSuffix ? '!' : ''}`
         }
       }
       return null

@@ -24,17 +24,28 @@ const SHORTHAND_VAR_RE = /^([a-z][a-z0-9-]*(?:-[a-z0-9]+)*)-\((--[a-zA-Z0-9-]+)\
 function convertClass(cls: string, syntax: 'shorthand' | 'explicit'): string | null {
   const { utility, variant } = splitUtilityAndVariant(cls)
 
+  // Strip ! (important) for regex matching — prefix or suffix
+  const hasImportantPrefix = utility.startsWith('!')
+  const hasImportantSuffix = !hasImportantPrefix && utility.endsWith('!')
+  const bareUtility = hasImportantPrefix
+    ? utility.slice(1)
+    : hasImportantSuffix
+      ? utility.slice(0, -1)
+      : utility
+  const importantStart = hasImportantPrefix ? '!' : ''
+  const importantEnd = hasImportantSuffix ? '!' : ''
+
   if (syntax === 'shorthand') {
-    const match = EXPLICIT_VAR_RE.exec(utility)
+    const match = EXPLICIT_VAR_RE.exec(bareUtility)
     if (match) {
       const [, prefix, varName] = match
-      return `${variant}${prefix}-(${varName})`
+      return `${variant}${importantStart}${prefix}-(${varName})${importantEnd}`
     }
   } else {
-    const match = SHORTHAND_VAR_RE.exec(utility)
+    const match = SHORTHAND_VAR_RE.exec(bareUtility)
     if (match) {
       const [, prefix, varName] = match
-      return `${variant}${prefix}-[var(${varName})]`
+      return `${variant}${importantStart}${prefix}-[var(${varName})]${importantEnd}`
     }
   }
   return null

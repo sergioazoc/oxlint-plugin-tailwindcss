@@ -10,8 +10,7 @@ import {
 } from '../utils/extractors'
 import { splitClasses } from '../utils/class-splitter'
 import { splitUtilityAndVariant } from '../utils/class-parser'
-import { getLoadedDesignSystem } from '../design-system/loader'
-import { safeOptions, safeSettings } from '../types'
+import { createLazyLoader } from '../design-system/loader'
 
 // Mapping of deprecated classes in TW v4 to their replacements
 export const DEPRECATED_MAP: Record<string, string> = {
@@ -45,38 +44,68 @@ export const noDeprecatedClasses = defineRule({
     },
   },
   createOnce(context) {
-    const options = safeOptions<{ entryPoint?: string }>(context)
-    const result = getLoadedDesignSystem(options?.entryPoint, safeSettings(context))
+    const getDS = createLazyLoader(context)
 
     function check(locations: ClassLocation[]) {
+      const dsResult = getDS()
       for (const loc of locations) {
         const classes = splitClasses(loc.value)
+        const offending: Array<{ cls: string; replacement: string }> = []
 
         for (const cls of classes) {
           const { utility, variant } = splitUtilityAndVariant(cls)
 
-          const replacement = DEPRECATED_MAP[utility]
+          // Strip ! (important) for lookup — prefix or suffix
+          const hasImportantPrefix = utility.startsWith('!')
+          const hasImportantSuffix = !hasImportantPrefix && utility.endsWith('!')
+          const bareUtility = hasImportantPrefix
+            ? utility.slice(1)
+            : hasImportantSuffix
+              ? utility.slice(0, -1)
+              : utility
+
+          const replacement = DEPRECATED_MAP[bareUtility]
           if (!replacement) continue
 
           // If we have a design system, verify with canonicalize
-          if (result) {
-            const canonical = result.cache.canonicalize(utility)
-            if (canonical !== utility && canonical === replacement) {
+          if (dsResult) {
+            const canonical = dsResult.cache.canonicalize(bareUtility)
+            if (canonical !== bareUtility && canonical === replacement) {
               // Confirmed by the design system
             }
           }
 
-          const fullReplacement = variant + replacement
+          const fullReplacement =
+            variant +
+            (hasImportantPrefix ? '!' : '') +
+            replacement +
+            (hasImportantSuffix ? '!' : '')
+          offending.push({ cls, replacement: fullReplacement })
+        }
 
-          context.report({
-            node: loc.node,
-            messageId: 'deprecated',
-            data: { className: cls, replacement: fullReplacement },
-            fix(fixer) {
-              const fixed = loc.value.replace(cls, fullReplacement)
-              return fixer.replaceTextRange(loc.range, preserveSpaces(loc, fixed))
-            },
-          })
+        if (offending.length === 0) continue
+
+        const replacements = new Map(offending.map(({ cls, replacement }) => [cls, replacement]))
+        const fixedValue = classes.map((cls) => replacements.get(cls) ?? cls).join(' ')
+
+        for (let i = 0; i < offending.length; i++) {
+          const { cls, replacement } = offending[i]
+          if (i === 0) {
+            context.report({
+              node: loc.node,
+              messageId: 'deprecated',
+              data: { className: cls, replacement },
+              fix(fixer) {
+                return fixer.replaceTextRange(loc.range, preserveSpaces(loc, fixedValue))
+              },
+            })
+          } else {
+            context.report({
+              node: loc.node,
+              messageId: 'deprecated',
+              data: { className: cls, replacement },
+            })
+          }
         }
       }
     }

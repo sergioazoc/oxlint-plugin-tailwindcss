@@ -61,6 +61,13 @@ ruleTester.run('enforce-consistent-variable-syntax', enforceConsistentVariableSy
       errors: [{ messageId: 'useShorthand' }],
       output: '<div className={`${base} bg-(--primary)`} />',
     },
+    // ! important modifier
+    {
+      code: '<div className="!bg-[var(--primary)]" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'useShorthand' }],
+      output: '<div className="!bg-(--primary)" />',
+    },
   ],
 })
 

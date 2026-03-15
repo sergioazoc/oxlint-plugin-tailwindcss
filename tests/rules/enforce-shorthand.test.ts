@@ -9,6 +9,12 @@ ruleTester.run('enforce-shorthand', enforceShorthand, {
     { code: '<div className="p-4 flex" />', filename: 'test.tsx' },
     { code: '<div className="mt-2 mr-4" />', filename: 'test.tsx' },
     { code: '<div className="size-full" />', filename: 'test.tsx' },
+    // Shorthand with different variants should NOT be merged
+    { code: '<div className="hover:mt-2 focus:mb-2" />', filename: 'test.tsx' },
+    // Partial axes with different values
+    { code: '<div className="mt-2 mb-4" />', filename: 'test.tsx' },
+    // Same variant on all axes — rule does not handle variants, so this is valid
+    { code: '<div className="hover:mt-2 hover:mr-2 hover:mb-2 hover:ml-2" />', filename: 'test.tsx' },
   ],
   invalid: [
     {
@@ -54,6 +60,20 @@ ruleTester.run('enforce-shorthand', enforceShorthand, {
       filename: 'test.tsx',
       errors: [{ messageId: 'shorthand' }],
       output: '<div className={`${base} size-4`} />',
+    },
+    // Scrambled order
+    {
+      code: '<div className="mb-2 ml-2 mt-2 mr-2" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'shorthand' }, { messageId: 'shorthand' }, { messageId: 'shorthand' }],
+      output: '<div className="m-2" />',
+    },
+    // ! important modifier
+    {
+      code: '<div className="!mt-2 !mr-2 !mb-2 !ml-2" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'shorthand' }, { messageId: 'shorthand' }, { messageId: 'shorthand' }],
+      output: '<div className="!m-2" />',
     },
   ],
 })

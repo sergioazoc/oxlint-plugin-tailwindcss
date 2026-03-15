@@ -9,8 +9,8 @@ import {
 } from '../utils/extractors'
 import { splitClasses } from '../utils/class-splitter'
 import { findBestSuggestion } from '../utils/levenshtein'
-import { getLoadedDesignSystem } from '../design-system/loader'
-import { safeOptions, safeSettings } from '../types'
+import { createLazyLoader } from '../design-system/loader'
+import { safeOptions } from '../types'
 
 interface Options {
   entryPoint?: string
@@ -45,27 +45,38 @@ export const noUnknownClasses = defineRule({
     },
   },
   createOnce(context) {
-    const options = safeOptions<Options>(context)
-    const result = getLoadedDesignSystem(options?.entryPoint, safeSettings(context))
-    if (!result) return {}
+    const getDS = createLazyLoader(context)
 
-    const { cache } = result
-    const allowlist = new Set(options?.allowlist ?? [])
-    const ignorePrefixes = options?.ignorePrefixes ?? []
+    let _allowlist: Set<string> | null = null
+    let _ignorePrefixes: string[] | null = null
+    function getLazyOptions() {
+      if (_allowlist === null) {
+        const opts = safeOptions<Options>(context)
+        _allowlist = new Set(opts?.allowlist ?? [])
+        _ignorePrefixes = opts?.ignorePrefixes ?? []
+      }
+      return { allowlist: _allowlist, ignorePrefixes: _ignorePrefixes! }
+    }
 
     function shouldIgnore(className: string): boolean {
+      const { allowlist, ignorePrefixes } = getLazyOptions()
       if (allowlist.has(className)) return true
       return ignorePrefixes.some((prefix) => className.startsWith(prefix))
     }
 
     function stripModifiers(className: string): string {
-      // Strip ! (important) for validation
+      // Strip ! (important) for validation — prefix or suffix form
       let stripped = className
       if (stripped.startsWith('!')) stripped = stripped.slice(1)
+      if (stripped.endsWith('!')) stripped = stripped.slice(0, -1)
       return stripped
     }
 
     function check(locations: ClassLocation[]) {
+      const ds = getDS()
+      if (!ds) return
+      const { cache } = ds
+
       for (const loc of locations) {
         const classes = splitClasses(loc.value)
 

@@ -2,6 +2,13 @@ import { type PrecomputedData } from './sync-loader'
 import { roundRemValue } from '../utils/floating-point'
 import { extractUtility, hasArbitraryValue } from '../utils/class-parser'
 
+/** Strip `!` modifier from start or end: `!flex` → `flex`, `flex!` → `flex` */
+function stripImportant(cls: string): { bare: string; important: boolean } {
+  if (cls.startsWith('!')) return { bare: cls.slice(1), important: true }
+  if (cls.endsWith('!')) return { bare: cls.slice(0, -1), important: true }
+  return { bare: cls, important: false }
+}
+
 export class DesignSystemCache {
   private canonicalMap = new Map<string, string>()
   private validitySet = new Set<string>()
@@ -70,6 +77,17 @@ export class DesignSystemCache {
       }
     }
 
+    // Strip ! (important) — prefix or suffix — and retry
+    const { bare, important } = stripImportant(utility)
+    if (important) {
+      const canonicalBare = this.canonicalMap.get(bare)
+      if (canonicalBare !== undefined) {
+        const prefix = className.slice(0, className.length - utility.length)
+        // Always output prefix form for canonical
+        return prefix + '!' + canonicalBare
+      }
+    }
+
     return className
   }
 
@@ -97,6 +115,13 @@ export class DesignSystemCache {
       if (baseOrder !== undefined) return baseOrder
     }
 
+    // Strip ! (important) and retry
+    const { bare, important } = stripImportant(utility)
+    if (important) {
+      const bareOrder = this.orderMap.get(bare)
+      if (bareOrder !== undefined) return bareOrder
+    }
+
     return null
   }
 
@@ -105,7 +130,11 @@ export class DesignSystemCache {
   }
 
   getCssProperties(className: string): string[] {
-    return this.cssPropsMap.get(className) ?? []
+    const result = this.cssPropsMap.get(className)
+    if (result) return result
+    const { bare, important } = stripImportant(className)
+    if (important) return this.cssPropsMap.get(bare) ?? []
+    return []
   }
 
   getVariantPriority(variant: string): number | null {
@@ -117,6 +146,10 @@ export class DesignSystemCache {
   }
 
   getNamedEquivalent(className: string): string | null {
-    return this.arbitraryEquivMap.get(className) ?? null
+    const result = this.arbitraryEquivMap.get(className)
+    if (result) return result
+    const { bare, important } = stripImportant(className)
+    if (important) return this.arbitraryEquivMap.get(bare) ?? null
+    return null
   }
 }

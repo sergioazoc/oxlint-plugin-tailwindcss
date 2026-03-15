@@ -32,6 +32,12 @@ ruleTester.run('no-arbitrary-value', noArbitraryValue, {
       filename: 'test.tsx',
       errors: [{ messageId: 'noArbitrary' }],
     },
+    // Important modifier with arbitrary value
+    {
+      code: '<div className="!w-[200px]" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'noArbitrary' }],
+    },
   ],
 })
 
@@ -45,6 +51,12 @@ ruleTester.run('no-arbitrary-value (allow)', noArbitraryValue, {
     },
     {
       code: '<div className="text-[14px]" />',
+      filename: 'test.tsx',
+      options: [{ allow: ['bg-', 'text-'] }],
+    },
+    // Important modifier with allowed prefix
+    {
+      code: '<div className="!bg-[#ff0000]" />',
       filename: 'test.tsx',
       options: [{ allow: ['bg-', 'text-'] }],
     },
