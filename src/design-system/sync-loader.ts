@@ -36,18 +36,58 @@ const { __unstable__loadDesignSystem } = require('@tailwindcss/node');
 const { readFileSync } = require('fs');
 const { dirname, resolve } = require('path');
 
+function resolveImport(specifier, baseDir) {
+  // Relative import: ./file.css, ../file.css
+  if (specifier.startsWith('.')) return resolve(baseDir, specifier);
+  // Package import: tw-animate-css, @scope/pkg
+  const { join } = require('path');
+  const { existsSync } = require('fs');
+  // Walk up to find node_modules (monorepo support)
+  let dir = baseDir;
+  while (true) {
+    const pkgDir = join(dir, 'node_modules', specifier);
+    if (existsSync(pkgDir)) {
+      // Read package.json to find CSS entry (main, style, exports.style)
+      try {
+        const pkg = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf-8'));
+        const entry = pkg.style || pkg.main || '';
+        if (entry.endsWith('.css')) return resolve(pkgDir, entry);
+        // Check exports["."].style
+        const exp = pkg.exports && pkg.exports['.'];
+        const styleEntry = typeof exp === 'object' && exp !== null ? exp.style : null;
+        if (styleEntry) return resolve(pkgDir, styleEntry);
+      } catch {}
+      // Fallback: try common CSS filenames
+      const fallbacks = ['index.css', 'dist/index.css', 'style.css', 'styles.css'];
+      for (const f of fallbacks) {
+        const p = join(pkgDir, f);
+        if (existsSync(p)) return p;
+      }
+      return null;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
 function extractComponentClasses(cssPath, baseDir) {
   let css;
   try { css = readFileSync(cssPath, 'utf-8'); } catch { return []; }
   const files = [css];
-  const importRe = /@import\\s+['"](\\.[\\/][^'"]+)['"]/g;
+  const importRe = /@import\\s+['"]([^'"]+)['"]/g;
   let m;
   while ((m = importRe.exec(css)) !== null) {
-    try { files.push(readFileSync(resolve(baseDir, m[1]), 'utf-8')); } catch {}
+    const resolved = resolveImport(m[1], baseDir);
+    if (resolved) {
+      try { files.push(readFileSync(resolved, 'utf-8')); } catch {}
+    }
   }
   const result = [];
   for (const content of files) {
-    const layerRe = /@layer\\s+components\\s*\\{/g;
+    // Scan both @layer components AND @layer utilities
+    const layerRe = /@layer\\s+(?:components|utilities)\\s*\\{/g;
     let lm;
     while ((lm = layerRe.exec(content)) !== null) {
       let depth = 1, i = lm.index + lm[0].length;
@@ -61,6 +101,10 @@ function extractComponentClasses(cssPath, baseDir) {
       let sm;
       while ((sm = selRe.exec(block)) !== null) result.push(sm[1]);
     }
+    // Also scan top-level class selectors (for CSS files without @layer)
+    const topLevelRe = /^\\s*\\.([\\w-]+)\\s*[{,]/gm;
+    let tl;
+    while ((tl = topLevelRe.exec(content)) !== null) result.push(tl[1]);
   }
   return [...new Set(result)];
 }
@@ -204,7 +248,7 @@ main().catch(e => { process.stderr.write(e.message); process.exit(1); });
 const CACHE_DIR = join(tmpdir(), 'oxlint-tailwindcss')
 
 // Bump this when precompute logic changes to invalidate disk cache
-const CACHE_VERSION = 5
+const CACHE_VERSION = 6
 
 function getCachePath(cssPath: string, mtime: number): string {
   const hash = createHash('md5').update(`v${CACHE_VERSION}:${cssPath}:${mtime}`).digest('hex')
