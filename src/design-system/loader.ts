@@ -79,11 +79,10 @@ export function createLazyLoader(context: {
   filename?: string
 }): () => LoadResult | null {
   let result: LoadResult | null = null
-  let triedWithFilePath = false
+  let lastFilePath: string | undefined
 
   return () => {
     if (result) return result
-    if (triedWithFilePath) return null
 
     let entryPoint: string | undefined
     try {
@@ -101,8 +100,11 @@ export function createLazyLoader(context: {
       filePath = context.filename
     } catch {}
 
+    // Skip retry if we already tried with the same file path
+    if (filePath && filePath === lastFilePath) return null
+    if (filePath) lastFilePath = filePath
+
     result = getLoadedDesignSystem(entryPoint, settings, filePath)
-    if (filePath) triedWithFilePath = true
 
     return result
   }

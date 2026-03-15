@@ -109,7 +109,8 @@ describe('createLazyLoader — oxlint lifecycle simulation', () => {
     expect(result!.cache.isValid('flex')).toBe(true)
   })
 
-  it('stops retrying after full context was available and failed', () => {
+  it('stops retrying with same filename, retries with new filename', () => {
+    let currentFile = '/nonexistent/file.tsx'
     let callCount = 0
     const context = {
       get options() {
@@ -120,7 +121,7 @@ describe('createLazyLoader — oxlint lifecycle simulation', () => {
       },
       get filename() {
         callCount++
-        return '/nonexistent/file.tsx'
+        return currentFile
       },
     }
 
@@ -128,9 +129,13 @@ describe('createLazyLoader — oxlint lifecycle simulation', () => {
     expect(getDS()).toBeNull()
     expect(getDS()).toBeNull()
 
-    // filename getter should only be called once (first call sets triedWithFilePath)
-    // second call short-circuits before accessing filename
-    expect(callCount).toBe(1)
+    // Same filename → second call short-circuits
+    expect(callCount).toBe(2) // first reads filename, second reads and matches → skip
+
+    // New filename → retries auto-detect
+    currentFile = '/other/nonexistent/file.tsx'
+    expect(getDS()).toBeNull()
+    expect(callCount).toBe(3) // read new filename, tried, failed
   })
 })
 
