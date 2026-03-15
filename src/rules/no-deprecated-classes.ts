@@ -21,6 +21,14 @@ export const DEPRECATED_MAP: Record<string, string> = {
   'overflow-ellipsis': 'text-ellipsis',
   'decoration-slice': 'box-decoration-slice',
   'decoration-clone': 'box-decoration-clone',
+  'bg-gradient-to-t': 'bg-linear-to-t',
+  'bg-gradient-to-tr': 'bg-linear-to-tr',
+  'bg-gradient-to-r': 'bg-linear-to-r',
+  'bg-gradient-to-br': 'bg-linear-to-br',
+  'bg-gradient-to-b': 'bg-linear-to-b',
+  'bg-gradient-to-bl': 'bg-linear-to-bl',
+  'bg-gradient-to-l': 'bg-linear-to-l',
+  'bg-gradient-to-tl': 'bg-linear-to-tl',
 }
 
 export const noDeprecatedClasses = defineRule({

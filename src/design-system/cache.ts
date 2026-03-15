@@ -98,11 +98,39 @@ export class DesignSystemCache {
     const utility = extractUtility(className)
     if (utility !== className && this.validitySet.has(utility)) return true
 
+    // Strip ! (important) for validation
+    const { bare } = stripImportant(utility)
+    if (bare !== utility && this.validitySet.has(bare)) return true
+
     // Opacity modifier: bg-black/80 → validate bg-black
-    const slashIdx = utility.lastIndexOf('/')
+    const slashIdx = bare.lastIndexOf('/')
     if (slashIdx > 0) {
-      const base = utility.slice(0, slashIdx)
+      const base = bare.slice(0, slashIdx)
       if (this.validitySet.has(base)) return true
+    }
+
+    // Dynamic numeric values: w-45, min-h-17.5, size-3.75, etc.
+    // Tailwind v4 accepts any numeric value for spacing/sizing utilities
+    const numericMatch = /^(.+)-(\d+\.?\d*)$/.exec(bare)
+    if (numericMatch) {
+      const prefix = numericMatch[1]
+      if (
+        this.validitySet.has(`${prefix}-4`) ||
+        this.validitySet.has(`${prefix}-0`) ||
+        this.validitySet.has(`${prefix}-1`)
+      ) {
+        return true
+      }
+    }
+
+    // Bare utility without value: rounded, shadow, blur, ring, etc.
+    // getClassList() may only list rounded-sm/lg but not the base form
+    if (
+      this.validitySet.has(`${bare}-sm`) ||
+      this.validitySet.has(`${bare}-lg`) ||
+      this.validitySet.has(`${bare}-none`)
+    ) {
+      return true
     }
 
     // Arbitrary values (bracket syntax) are considered valid

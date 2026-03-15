@@ -59,6 +59,29 @@ describe('Design System Integration', () => {
     expect(cache.isValid('bg-fakecolor/80')).toBe(false)
   })
 
+  it('validates dynamic numeric values', () => {
+    const { cache } = result!
+    // Tailwind v4 accepts any numeric value for spacing/sizing
+    expect(cache.isValid('w-45')).toBe(true)
+    expect(cache.isValid('min-h-17.5')).toBe(true)
+    expect(cache.isValid('max-w-62.5')).toBe(true)
+    expect(cache.isValid('size-3.75')).toBe(true)
+    expect(cache.isValid('p-8.5')).toBe(true)
+    expect(cache.isValid('gap-13')).toBe(true)
+    // Invalid prefix with number is still invalid
+    expect(cache.isValid('fake-45')).toBe(false)
+  })
+
+  it('validates bare utility classes', () => {
+    const { cache } = result!
+    // Base forms like rounded, shadow — getClassList() may only list rounded-sm/lg
+    expect(cache.isValid('rounded')).toBe(true)
+    expect(cache.isValid('shadow')).toBe(true)
+    expect(cache.isValid('blur')).toBe(true)
+    // Made-up bare utility
+    expect(cache.isValid('fakeutility')).toBe(false)
+  })
+
   it('rejects made-up classes', () => {
     const { cache } = result!
     expect(cache.isValid('itms-center')).toBe(false)
