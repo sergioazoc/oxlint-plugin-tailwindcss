@@ -19,6 +19,9 @@ ruleTester.run('no-conflicting-classes', noConflictingClasses, {
     { code: '<div className="p-4 m-2" />', filename: 'test.tsx' },
     // Different variants = no conflict
     { code: '<div className="hover:bg-red-500 focus:bg-blue-500" />', filename: 'test.tsx' },
+    // Gradient utilities are complementary, not conflicting
+    { code: '<div className="from-white to-transparent" />', filename: 'test.tsx' },
+    { code: '<div className="from-blue-500 via-purple-500 to-pink-500" />', filename: 'test.tsx' },
   ],
   invalid: [
     {
