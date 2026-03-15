@@ -1,4 +1,4 @@
-import { type PrecomputedData } from './sync-loader'
+import { type PrecomputedData, validateCandidatesSync } from './sync-loader'
 import { roundRemValue } from '../utils/floating-point'
 import { extractUtility, hasArbitraryValue } from '../utils/class-parser'
 
@@ -17,6 +17,7 @@ export class DesignSystemCache {
   private variantOrderMap = new Map<string, number>()
   private arbitraryEquivMap = new Map<string, string>()
   private _validClasses: string[] = []
+  private _entryPoint: string = ''
 
   static fromPrecomputed(data: PrecomputedData): DesignSystemCache {
     const cache = new DesignSystemCache()
@@ -91,6 +92,10 @@ export class DesignSystemCache {
     return className
   }
 
+  setEntryPoint(entryPoint: string): void {
+    this._entryPoint = entryPoint
+  }
+
   isValid(className: string): boolean {
     if (this.validitySet.has(className)) return true
 
@@ -109,34 +114,31 @@ export class DesignSystemCache {
       if (this.validitySet.has(base)) return true
     }
 
-    // Dynamic numeric values: w-45, min-h-17.5, size-3.75, etc.
-    // Tailwind v4 accepts any numeric value for spacing/sizing utilities
-    const numericMatch = /^(.+)-(\d+\.?\d*)$/.exec(bare)
-    if (numericMatch) {
-      const prefix = numericMatch[1]
-      if (
-        this.validitySet.has(`${prefix}-4`) ||
-        this.validitySet.has(`${prefix}-0`) ||
-        this.validitySet.has(`${prefix}-1`)
-      ) {
-        return true
-      }
-    }
-
-    // Bare utility without value: rounded, shadow, blur, ring, etc.
-    // getClassList() may only list rounded-sm/lg but not the base form
-    if (
-      this.validitySet.has(`${bare}-sm`) ||
-      this.validitySet.has(`${bare}-lg`) ||
-      this.validitySet.has(`${bare}-none`)
-    ) {
-      return true
-    }
-
     // Arbitrary values (bracket syntax) are considered valid
     if (hasArbitraryValue(className)) return true
 
     return false
+  }
+
+  /**
+   * Validates classes not in the precomputed list via candidatesToCss().
+   * Results are cached in validitySet for future calls.
+   */
+  validateUnknown(classes: string[]): Set<string> {
+    if (classes.length === 0 || !this._entryPoint) return new Set(classes)
+
+    const results = validateCandidatesSync(this._entryPoint, classes)
+    const invalid = new Set<string>()
+
+    for (let i = 0; i < classes.length; i++) {
+      if (results[i]) {
+        this.validitySet.add(classes[i])
+      } else {
+        invalid.add(classes[i])
+      }
+    }
+
+    return invalid
   }
 
   getOrder(className: string): bigint | null {

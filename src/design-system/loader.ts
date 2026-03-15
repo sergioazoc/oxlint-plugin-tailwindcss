@@ -59,6 +59,7 @@ export function getLoadedDesignSystem(
     if (!data) return null
 
     const cache = DesignSystemCache.fromPrecomputed(data)
+    cache.setEntryPoint(resolvedPath)
     singleton = { cache, path: resolvedPath, mtime }
     return { cache, entryPoint: resolvedPath }
   } catch {

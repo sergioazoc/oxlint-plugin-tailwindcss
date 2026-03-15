@@ -59,34 +59,18 @@ describe('Design System Integration', () => {
     expect(cache.isValid('bg-fakecolor/80')).toBe(false)
   })
 
-  it('validates dynamic numeric values', () => {
+  it('validates unknown classes via candidatesToCss fallback', () => {
     const { cache } = result!
-    // Tailwind v4 accepts any numeric value for spacing/sizing
-    expect(cache.isValid('w-45')).toBe(true)
-    expect(cache.isValid('min-h-17.5')).toBe(true)
-    expect(cache.isValid('max-w-62.5')).toBe(true)
-    expect(cache.isValid('size-3.75')).toBe(true)
-    expect(cache.isValid('p-8.5')).toBe(true)
-    expect(cache.isValid('gap-13')).toBe(true)
-    // Invalid prefix with number is still invalid
-    expect(cache.isValid('fake-45')).toBe(false)
-  })
-
-  it('validates screen breakpoint classes', () => {
-    const { cache } = result!
-    expect(cache.isValid('max-w-screen-lg')).toBe(true)
-    expect(cache.isValid('max-w-screen-sm')).toBe(true)
-    expect(cache.isValid('max-w-screen-xl')).toBe(true)
-  })
-
-  it('validates bare utility classes', () => {
-    const { cache } = result!
-    // Base forms like rounded, shadow — getClassList() may only list rounded-sm/lg
-    expect(cache.isValid('rounded')).toBe(true)
-    expect(cache.isValid('shadow')).toBe(true)
-    expect(cache.isValid('blur')).toBe(true)
-    // Made-up bare utility
-    expect(cache.isValid('fakeutility')).toBe(false)
+    // These classes are valid in Tailwind v4 but not in getClassList()
+    const candidates = ['w-45', 'min-h-17.5', 'rounded', 'max-w-screen-lg', 'shadow', 'bg-gradient-to-b']
+    const invalid = cache.validateUnknown(candidates)
+    // All should be valid (not in the invalid set)
+    for (const cls of candidates) {
+      expect(invalid.has(cls)).toBe(false)
+    }
+    // Made-up class should be invalid
+    const fakeInvalid = cache.validateUnknown(['not-a-real-class-xyz'])
+    expect(fakeInvalid.has('not-a-real-class-xyz')).toBe(true)
   })
 
   it('rejects made-up classes', () => {

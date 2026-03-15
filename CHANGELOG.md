@@ -11,7 +11,7 @@
 - **Expanded auto-detection** — 81 candidate paths (9 directories × 9 filenames).
 - **Fix opacity modifier false positives** — Classes like `bg-black/80`, `text-white/90` were incorrectly reported as unknown.
 - **Fix `no-conflicting-classes` false positives** — Filter out `@property` descriptors (`syntax`, `inherits`, `initial-value`) from CSS property extraction. These were incorrectly shared across unrelated utilities, causing false conflicts like `shadow-lg` vs `ease-in-out`.
-- **Fix `no-unknown-classes` false positives for dynamic values** — Tailwind v4 accepts any numeric value (`w-45`, `min-h-17.5`, `size-3.75`), bare utilities (`rounded`, `shadow`, `blur`), and opacity modifiers (`bg-black/80`). These were incorrectly flagged as unknown.
+- **Fix `no-unknown-classes` false positives** — Classes not in `getClassList()` but valid in Tailwind v4 (`w-45`, `rounded`, `max-w-screen-lg`, `bg-black/80`, etc.) are now validated via `candidatesToCss()` fallback. Eliminates false positives for dynamic numeric values, bare utilities, screen breakpoints, and opacity modifiers.
 - **Add deprecated gradient classes** — `bg-gradient-to-{t,tr,r,br,b,bl,l,tl}` → `bg-linear-to-*` with autofix.
 - Centralized `stripImportant()` in design system cache for consistent `!` handling.
 - 484 tests (up from 344).
