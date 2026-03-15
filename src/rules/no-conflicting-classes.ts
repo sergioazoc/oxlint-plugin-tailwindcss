@@ -70,6 +70,7 @@ export const noConflictingClasses = defineRule({
             /^(?:from|via|to)-/, // gradient stops
             /^(?:shadow|ring|ring-offset)-/, // box-shadow composition
             /^(?:transition|duration|ease|delay)-/, // transition composition
+            /^-?(?:translate|scale|rotate|skew)-/, // transform axis composition (x + y)
             /^prose(?:-|$)/, // prose + prose-sm/lg/xl modifiers + max-w override
           ]
           // Pairs where one utility sets defaults and the other overrides a specific property

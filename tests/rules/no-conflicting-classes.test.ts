@@ -36,6 +36,9 @@ ruleTester.run('no-conflicting-classes', noConflictingClasses, {
     // border width + border style compose
     { code: '<div className="border border-dashed" />', filename: 'test.tsx' },
     { code: '<div className="border-2 border-dotted" />', filename: 'test.tsx' },
+    // transform axes compose (x + y are independent)
+    { code: '<div className="translate-x-2 -translate-y-2" />', filename: 'test.tsx' },
+    { code: '<div className="scale-x-50 scale-y-75" />', filename: 'test.tsx' },
   ],
   invalid: [
     {
