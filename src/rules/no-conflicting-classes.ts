@@ -69,10 +69,15 @@ export const noConflictingClasses = defineRule({
           const COMPLEMENTARY_GROUPS = [
             /^(?:from|via|to)-/, // gradient stops
             /^(?:shadow|ring|ring-offset)-/, // box-shadow composition
+            /^(?:transition|duration|ease|delay)-/, // transition composition
+            /^prose(?:-|$)/, // prose + prose-sm/lg/xl modifiers + max-w override
           ]
-          // divide-* targets child elements (> * + *), not the element itself
-          const CROSS_SELECTOR_PAIRS: [RegExp, RegExp][] = [
-            [/^divide-/, /^border(?:-[trblxyse])?-/],
+          // Pairs where one utility sets defaults and the other overrides a specific property
+          const COMPOSITION_PAIRS: [RegExp, RegExp][] = [
+            [/^text-/, /^leading-/], // text-sm sets line-height, leading-* overrides
+            [/^border(?:-[0-9]|$)/, /^border-(?:solid|dashed|dotted|double|hidden|none)$/], // border width + style
+            [/^divide-/, /^border(?:-[trblxyse])?-/], // divide-* targets children
+            [/^prose(?:-|$)/, /^max-w-/], // prose sets max-width, max-w-* overrides
           ]
 
           function shouldSkipPair(a: string, b: string): boolean {
@@ -86,8 +91,8 @@ export const noConflictingClasses = defineRule({
             for (const re of COMPLEMENTARY_GROUPS) {
               if (re.test(ua) && re.test(ub)) return true
             }
-            // Utilities that target different selectors
-            for (const [reA, reB] of CROSS_SELECTOR_PAIRS) {
+            // Composition pairs where one sets defaults and the other overrides
+            for (const [reA, reB] of COMPOSITION_PAIRS) {
               if ((reA.test(ua) && reB.test(ub)) || (reA.test(ub) && reB.test(ua))) return true
             }
             return false

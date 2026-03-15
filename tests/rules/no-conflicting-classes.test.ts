@@ -27,6 +27,15 @@ ruleTester.run('no-conflicting-classes', noConflictingClasses, {
     // shadow-* and ring-* compose via CSS custom properties in box-shadow
     { code: '<div className="shadow-sm ring-2" />', filename: 'test.tsx' },
     { code: '<div className="shadow-lg ring-1 ring-offset-2" />', filename: 'test.tsx' },
+    // text-* sets line-height as default, leading-* overrides it
+    { code: '<div className="text-sm leading-relaxed" />', filename: 'test.tsx' },
+    { code: '<div className="text-xs leading-tight" />', filename: 'test.tsx' },
+    // transition-* + duration-*/ease-*/delay-* compose
+    { code: '<div className="transition-all duration-500 ease-out" />', filename: 'test.tsx' },
+    { code: '<div className="transition-colors duration-150" />', filename: 'test.tsx' },
+    // border width + border style compose
+    { code: '<div className="border border-dashed" />', filename: 'test.tsx' },
+    { code: '<div className="border-2 border-dotted" />', filename: 'test.tsx' },
   ],
   invalid: [
     {
