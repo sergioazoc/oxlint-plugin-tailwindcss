@@ -1,55 +1,71 @@
 /**
- * Persistent sort service using named pipes (FIFOs) for synchronous IPC.
+ * Persistent sort service using worker_threads + SharedArrayBuffer.
  *
  * The problem: `ds.getClassOrder()` is the only way to get the exact official
  * Tailwind CSS sort order (matching oxfmt/prettier-plugin-tailwindcss), but the
  * design system is async to load and the oxlint plugin API is sync.
  *
- * The solution: spawn a persistent child process that loads the DS once, then
- * accepts sort requests via FIFOs. File descriptors are opened ONCE and kept
- * open for the entire lint session, using newline-delimited JSON framing.
+ * The solution: spawn a Worker thread that loads the DS once, then accepts sort
+ * requests via SharedArrayBuffer + Atomics. The parent uses `Atomics.wait()`
+ * (with timeout) for synchronous blocking without risk of infinite hangs.
  *
- * Falls back gracefully on platforms without FIFO support (Windows).
+ * Falls back gracefully if the worker fails to initialize within the timeout.
  */
 
-import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
-import { openSync, readSync, writeSync, closeSync, unlinkSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { Worker } from 'node:worker_threads'
+import { dirname } from 'node:path'
 
-const SORT_WORKER_SCRIPT = `
-const { openSync, readSync, writeSync, closeSync } = require('fs');
-const { dirname } = require('path');
+// SharedArrayBuffer layout:
+//   [0] Int32  — requestSignal  (0=idle, 1=has_request)
+//   [1] Int32  — responseSignal (0=idle, 1=has_response)
+//   [2] Int32  — readySignal    (0=loading, 1=ready, -1=error)
+//   [3] Int32  — (reserved/padding)
+//   [16..19]   — Uint32 data length
+//   [20..]     — Uint8 data (JSON, shared for request & response)
 
-function readLine(fd) {
-  let line = '';
-  const buf = Buffer.alloc(1);
-  while (true) {
-    const n = readSync(fd, buf, 0, 1);
-    if (n === 0) return null;
-    if (buf[0] === 10) return line;
-    line += String.fromCharCode(buf[0]);
-  }
-}
+const BUFFER_SIZE = 4 * 1024 * 1024 // 4 MB
+const HEADER_INTS = 4
+const DATA_OFFSET = HEADER_INTS * 4 + 4 // 20 bytes
+const INIT_TIMEOUT = 30_000 // 30 s to load DS
+const REQUEST_TIMEOUT = 10_000 // 10 s per sort request
+
+const WORKER_SCRIPT = `
+const { workerData } = require('worker_threads');
 
 async function main() {
-  const cssPath = process.env.TAILWIND_CSS_PATH;
-  const reqPipe = process.env.REQ_PIPE;
-  const resPipe = process.env.RES_PIPE;
+  const { sharedBuffer, cssPath } = workerData;
+  const control = new Int32Array(sharedBuffer, 0, ${HEADER_INTS});
+  const lengthView = new DataView(sharedBuffer, ${HEADER_INTS * 4}, 4);
+  const dataArea = new Uint8Array(sharedBuffer, ${DATA_OFFSET});
 
-  const { __unstable__loadDesignSystem } = require('@tailwindcss/node');
-  const { readFileSync } = require('fs');
-  const css = readFileSync(cssPath, 'utf-8');
-  const ds = await __unstable__loadDesignSystem(css, { base: dirname(cssPath) });
+  let ds;
+  try {
+    const { __unstable__loadDesignSystem } = require('@tailwindcss/node');
+    const { readFileSync } = require('fs');
+    const { dirname } = require('path');
+    const css = readFileSync(cssPath, 'utf-8');
+    ds = await __unstable__loadDesignSystem(css, { base: dirname(cssPath) });
+  } catch {
+    Atomics.store(control, 2, -1);
+    Atomics.notify(control, 2);
+    return;
+  }
 
-  const reqFd = openSync(reqPipe, 'r');
-  const resFd = openSync(resPipe, 'w');
+  // Signal ready
+  Atomics.store(control, 2, 1);
+  Atomics.notify(control, 2);
 
-  let req;
-  while ((req = readLine(reqFd)) !== null) {
-    if (!req) continue;
+  // Request loop
+  while (true) {
+    Atomics.wait(control, 0, 0); // wait for requestSignal !== 0
+
+    const len = lengthView.getUint32(0);
+    const requestStr = Buffer.from(dataArea.slice(0, len)).toString('utf-8');
+    Atomics.store(control, 0, 0); // consume request
+
+    let response;
     try {
-      const classes = JSON.parse(req);
+      const classes = JSON.parse(requestStr);
       const ordered = ds.getClassOrder(classes);
       const sorted = [...ordered]
         .sort((a, b) => {
@@ -59,86 +75,60 @@ async function main() {
           return a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0;
         })
         .map(([name]) => name);
-      const out = Buffer.from(JSON.stringify(sorted) + '\\n', 'utf-8');
-      writeSync(resFd, out, 0, out.length);
+      response = Buffer.from(JSON.stringify(sorted), 'utf-8');
     } catch {
-      const out = Buffer.from('null\\n', 'utf-8');
-      writeSync(resFd, out, 0, out.length);
+      response = Buffer.from('null', 'utf-8');
     }
-  }
 
-  closeSync(reqFd);
-  closeSync(resFd);
+    dataArea.set(response, 0);
+    lengthView.setUint32(0, response.length);
+
+    Atomics.store(control, 1, 1); // signal response
+    Atomics.notify(control, 1);
+  }
 }
-main().catch(() => process.exit(1));
+main();
 `
 
-let child: ChildProcess | null = null
-let reqPipe: string | null = null
-let resPipe: string | null = null
-let reqFd: number | null = null
-let resFd: number | null = null
+let worker: Worker | null = null
+let controlArray: Int32Array | null = null
+let lengthView: DataView | null = null
+let dataArea: Uint8Array | null = null
 let initialized = false
 let available = true
-let readBuffer = ''
-
-/** Read a newline-delimited line from an open file descriptor (blocking). */
-function readLineSync(fd: number): string {
-  while (true) {
-    const nlIdx = readBuffer.indexOf('\n')
-    if (nlIdx >= 0) {
-      const line = readBuffer.slice(0, nlIdx)
-      readBuffer = readBuffer.slice(nlIdx + 1)
-      return line
-    }
-    const buf = Buffer.alloc(65536)
-    const n = readSync(fd, buf, 0, buf.length, null)
-    if (n === 0) {
-      throw new Error('EOF')
-    }
-    readBuffer += buf.toString('utf-8', 0, n)
-  }
-}
 
 function ensureService(cssPath: string): boolean {
   if (initialized) return available
   initialized = true
 
   try {
-    const id = `${process.pid}-${Date.now()}`
-    reqPipe = join(tmpdir(), `oxlint-tw-req-${id}`)
-    resPipe = join(tmpdir(), `oxlint-tw-res-${id}`)
+    const sharedBuffer = new SharedArrayBuffer(BUFFER_SIZE)
+    controlArray = new Int32Array(sharedBuffer, 0, HEADER_INTS)
+    lengthView = new DataView(sharedBuffer, HEADER_INTS * 4, 4)
+    dataArea = new Uint8Array(sharedBuffer, DATA_OFFSET)
 
-    execFileSync('mkfifo', [reqPipe])
-    execFileSync('mkfifo', [resPipe])
-
-    child = spawn(process.execPath, ['-e', SORT_WORKER_SCRIPT], {
-      env: {
-        ...process.env,
-        TAILWIND_CSS_PATH: cssPath,
-        REQ_PIPE: reqPipe,
-        RES_PIPE: resPipe,
-      },
-      cwd: dirname(cssPath),
-      stdio: 'ignore',
-      detached: false,
+    worker = new Worker(WORKER_SCRIPT, {
+      eval: true,
+      workerData: { sharedBuffer, cssPath },
     })
 
-    child.unref()
-    child.on('error', () => {
-      child = null
+    worker.on('error', () => {
       available = false
+      worker = null
     })
-    child.on('exit', () => {
-      child = null
+    worker.on('exit', () => {
+      worker = null
     })
 
-    // Open FIFOs once — blocks until child opens the other end (after DS loads)
-    reqFd = openSync(reqPipe, 'w')
-    resFd = openSync(resPipe, 'r')
+    // Wait for DS to load (with timeout)
+    const result = Atomics.wait(controlArray, 2, 0, INIT_TIMEOUT)
+    if (result === 'timed-out' || controlArray[2] === -1) {
+      available = false
+      cleanup()
+      return false
+    }
 
     process.on('exit', cleanup)
-
     return true
   } catch {
     available = false
@@ -148,51 +138,47 @@ function ensureService(cssPath: string): boolean {
 }
 
 function cleanup(): void {
-  if (reqFd !== null) {
+  if (worker) {
     try {
-      closeSync(reqFd)
+      worker.terminate()
     } catch {}
-    reqFd = null
-  }
-  if (resFd !== null) {
-    try {
-      closeSync(resFd)
-    } catch {}
-    resFd = null
-  }
-  if (child) {
-    try {
-      child.kill()
-    } catch {}
-    child = null
-  }
-  if (reqPipe) {
-    try {
-      unlinkSync(reqPipe)
-    } catch {}
-    reqPipe = null
-  }
-  if (resPipe) {
-    try {
-      unlinkSync(resPipe)
-    } catch {}
-    resPipe = null
+    worker = null
   }
 }
 
 /**
- * Sort classes using the official Tailwind CSS sort order via persistent child process.
+ * Sort classes using the official Tailwind CSS sort order via worker thread.
  * Returns the sorted class array, or null if the service is unavailable.
  */
 export function sortClassesSync(cssPath: string, classes: string[]): string[] | null {
   if (!ensureService(cssPath)) return null
-  if (reqFd === null || resFd === null) return null
+  if (!controlArray || !dataArea || !lengthView) return null
 
   try {
-    const payload = Buffer.from(JSON.stringify(classes) + '\n', 'utf-8')
-    writeSync(reqFd, payload, 0, payload.length)
-    const line = readLineSync(resFd)
-    return JSON.parse(line)
+    const request = Buffer.from(JSON.stringify(classes), 'utf-8')
+    if (request.length > BUFFER_SIZE - DATA_OFFSET) return null // too large
+
+    dataArea.set(request, 0)
+    lengthView.setUint32(0, request.length)
+
+    // Signal request
+    Atomics.store(controlArray, 0, 1)
+    Atomics.notify(controlArray, 0)
+
+    // Wait for response (with timeout)
+    const result = Atomics.wait(controlArray, 1, 0, REQUEST_TIMEOUT)
+    if (result === 'timed-out') {
+      available = false
+      cleanup()
+      return null
+    }
+
+    // Read response
+    const responseLen = lengthView.getUint32(0)
+    const responseStr = Buffer.from(dataArea.slice(0, responseLen)).toString('utf-8')
+    Atomics.store(controlArray, 1, 0) // consume response
+
+    return JSON.parse(responseStr)
   } catch {
     available = false
     cleanup()
@@ -207,5 +193,7 @@ export function resetSortService(): void {
   cleanup()
   initialized = false
   available = true
-  readBuffer = ''
+  controlArray = null
+  lengthView = null
+  dataArea = null
 }

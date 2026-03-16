@@ -21,7 +21,7 @@ oxlint plugin with 22 Tailwind CSS v4 linting rules. Uses `@oxlint/plugins`' `cr
 Core sync/async bridge: `@tailwindcss/node`'s `__unstable__loadDesignSystem` is async, but `createOnce` is sync. Two strategies:
 
 1. **Precompute** (`sync-loader.ts`): `execFileSync` child process pre-computes validity, canonical forms, CSS props, etc. as JSON. Runs ONCE at plugin init, cached by path+mtime on disk.
-2. **Sort service** (`sort-service.ts`): Persistent child process communicates via named pipes (FIFOs) for `enforce-sort-order`. Loads the DS once, then accepts sort requests synchronously via `fs.writeFileSync`/`fs.readFileSync` on FIFOs. This calls `ds.getClassOrder()` dynamically with the actual classes, producing the exact official Tailwind sort order (identical to oxfmt/prettier-plugin-tailwindcss). Falls back to heuristic sort on platforms without FIFO support (Windows).
+2. **Sort service** (`sort-service.ts`): Worker thread communicates via `SharedArrayBuffer` + `Atomics.wait()` for `enforce-sort-order`. Loads the DS once, then accepts sort requests synchronously with built-in timeout support. This calls `ds.getClassOrder()` dynamically with the actual classes, producing the exact official Tailwind sort order (identical to oxfmt/prettier-plugin-tailwindcss). Falls back to heuristic sort if the worker fails to initialize.
 
 DS-dependent rules: `no-unknown-classes`, `no-conflicting-classes`, `no-deprecated-classes`, `enforce-canonical`, `enforce-sort-order`, `no-unnecessary-arbitrary-value`. `consistent-variant-order` optionally uses DS.
 
@@ -37,5 +37,5 @@ DS-dependent rules: `no-unknown-classes`, `no-conflicting-classes`, `no-deprecat
 - **`getClassList()` gaps**: Some valid classes (`grow-1`, `border-1`) are missing from the list. Arbitrary values handled by heuristic.
 - **Floating point**: All rem/em/px operations go through `roundRemValue()`.
 - **Hot path awareness**: Visitors run on every AST node. Compile regexes at module/createOnce level, not inside visitors. Avoid recomputing transforms — cache results from the first pass.
-- **Sort service lifecycle**: `sort-service.ts` spawns a persistent child process on first `enforce-sort-order` use. Communicates via FIFOs in `$TMPDIR`. Cleaned up on `process.on('exit')`. If `mkfifo` is unavailable (Windows), falls back to heuristic sort in `cache.getClassOrder()`.
-- **Runtime deps**: Only `@tailwindcss/node` and `tailwindcss`. No synckit, no workers.
+- **Sort service lifecycle**: `sort-service.ts` spawns a Worker thread on first `enforce-sort-order` use. Uses `SharedArrayBuffer` + `Atomics.wait()` with timeouts (30s init, 10s per request). Cleaned up on `process.on('exit')`. Falls back to heuristic sort in `cache.getClassOrder()` if the worker fails.
+- **Runtime deps**: Only `@tailwindcss/node` and `tailwindcss`. No synckit, no external workers.
