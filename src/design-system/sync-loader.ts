@@ -176,9 +176,13 @@ async function main() {
     }
   }
 
-  // Sort order
+  // Sort order — include extra candidates so bare utilities (rounded, blur, etc.) get order
+  const allForOrder = [...classNames];
+  for (const cls of validClasses) {
+    if (!classNames.includes(cls)) allForOrder.push(cls);
+  }
   const order = {};
-  const orderResults = ds.getClassOrder(classNames);
+  const orderResults = ds.getClassOrder(allForOrder);
   for (const [name, val] of orderResults) {
     if (val !== null) order[name] = val.toString();
   }
@@ -252,7 +256,7 @@ main().catch(e => { process.stderr.write(e.message); process.exit(1); });
 const CACHE_DIR = join(tmpdir(), 'oxlint-tailwindcss')
 
 // Bump this when precompute logic changes to invalidate disk cache
-const CACHE_VERSION = 7
+const CACHE_VERSION = 8
 
 function getCachePath(cssPath: string, mtime: number): string {
   const hash = createHash('md5').update(`v${CACHE_VERSION}:${cssPath}:${mtime}`).digest('hex')

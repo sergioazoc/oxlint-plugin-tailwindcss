@@ -2,19 +2,23 @@
 
 ## 0.1.5 (2026-03-15)
 
-- **Fix `!` (important) modifier handling across all rules** — Both prefix (`!flex`) and suffix (`flex!`) forms now work correctly in all 21 rules. Previously, classes with `!` were silently ignored by lookups in `enforce-shorthand`, `enforce-logical`, `enforce-canonical`, `enforce-sort-order`, `enforce-consistent-variable-syntax`, `enforce-negative-arbitrary-values`, `no-deprecated-classes`, `no-unnecessary-arbitrary-value`, `no-conflicting-classes`, `no-hardcoded-colors`, `no-arbitrary-value`, `no-dark-without-light`.
-- **Fix `enforce-sort-order`** — Classes with `!` modifier (e.g., `!text-red-500`) were sorted incorrectly (always placed first). Now use the same sort order as their non-`!` equivalent.
-- **Fix `no-deprecated-classes` autofix** — Multiple deprecated classes in the same string are now all fixed in one pass (previously only the first was fixed).
-- **Fix monorepo auto-detection** — Entry point is now detected by walking up from the linted file's path, not from `process.cwd()`. Fixes auto-detection in monorepos where lint runs from the root.
-- **`settings.tailwindcss.entryPoint`** — Configure the entry point once in `.oxlintrc.json` settings instead of repeating it per rule.
-- **Disk cache** — Design system precomputed data is cached to disk. Subsequent loads are ~10x faster.
-- **Expanded auto-detection** — 81 candidate paths (9 directories × 9 filenames).
-- **Fix opacity modifier false positives** — Classes like `bg-black/80`, `text-white/90` were incorrectly reported as unknown.
-- **Fix `no-conflicting-classes` false positives** — Filter out `@property` descriptors (`syntax`, `inherits`, `initial-value`) from CSS property extraction. These were incorrectly shared across unrelated utilities, causing false conflicts like `shadow-lg` vs `ease-in-out`.
-- **Fix `no-unknown-classes` false positives** — Classes valid in Tailwind v4 but missing from `getClassList()` are now handled: dynamic numeric values (`w-45`, `min-h-17.5`) via prefix heuristic, bare utilities (`rounded`, `shadow`) and screen breakpoints (`max-w-screen-lg`) via precompute expansion with `candidatesToCss()`, opacity modifiers (`bg-black/80`) via slash stripping.
+- **Add `enforce-physical` rule** — Inverse of `enforce-logical`. Converts logical properties (`ms-4`, `start-0`) to physical ones (`ml-4`, `left-0`). Autofix. 22 rules total.
+- **Exact official Tailwind sort order** — `enforce-sort-order` now uses `ds.getClassOrder()` via a persistent child process (sort service) for results identical to oxfmt/prettier-plugin-tailwindcss. Falls back to improved heuristic sort on platforms without FIFO support.
+- **Fix `!` (important) modifier handling across all rules** — Both prefix (`!flex`) and suffix (`flex!`) forms now work correctly in all 22 rules.
+- **Fix `enforce-sort-order`** — Classes with `!` modifier sorted incorrectly. Improved heuristic fallback for variant-prefixed classes, arbitrary values (`max-w-[200px]`), CSS function syntax (`h-(--size)`), and slash modifiers (`bg-muted/50`).
+- **Fix `enforce-shorthand`** — Exclude viewport units (`dvw`, `dvh`, `svw`, `svh`, `lvw`, `lvh`) from w+h→size shorthand. Fix suggesting invalid `size-screen`.
+- **Fix `no-conflicting-classes` false positives** — Transform axes, Tailwind composition patterns (shadow/ring, divide/border, gradient), `@property` descriptors.
+- **Fix `no-unknown-classes` false positives** — `candidatesToCss()` expansion, opacity modifiers (`bg-black/80`), gradient deprecations, dynamic numeric values, bare utilities.
+- **Fix `no-deprecated-classes` autofix** — Multiple deprecated classes in the same string now all fixed in one pass.
+- **Fix monorepo auto-detection** — Entry point detected from linted file's path, not `process.cwd()`.
+- **Fix import resolution** — External CSS packages, group/peer detection, CSS class extraction from imports.
 - **Add deprecated gradient classes** — `bg-gradient-to-{t,tr,r,br,b,bl,l,tl}` → `bg-linear-to-*` with autofix.
-- Centralized `stripImportant()` in design system cache for consistent `!` handling.
-- 484 tests (up from 344).
+- **`settings.tailwindcss.entryPoint`** — Configure the entry point once in `.oxlintrc.json` settings.
+- **Disk cache** — Design system precomputed data cached to disk (~10x faster subsequent loads).
+- **Expanded auto-detection** — 81 candidate paths (9 directories × 9 filenames).
+- Default config: `max-class-count` and `enforce-consistent-line-wrapping` default to "off".
+- Centralized `stripImportant()` for consistent `!` handling.
+- 536 tests (up from 344).
 
 ## 0.1.4 (2026-03-14)
 

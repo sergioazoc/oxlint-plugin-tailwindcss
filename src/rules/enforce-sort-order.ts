@@ -11,6 +11,7 @@ import {
 import { splitClasses } from '../utils/class-splitter'
 import { splitUtilityAndVariant } from '../utils/class-parser'
 import { createLazyLoader } from '../design-system/loader'
+import { sortClassesSync } from '../design-system/sort-service'
 import { safeOptions } from '../types'
 
 interface Options {
@@ -55,10 +56,15 @@ export const enforceSortOrder = defineRule({
     function check(locations: ClassLocation[]) {
       const ds = getDS()
       if (!ds) return
-      const { cache } = ds
+      const { cache, entryPoint } = ds
       const mode = getMode()
 
       function sortDefault(classes: string[]): string[] {
+        // Use persistent child process for exact official Tailwind sort order
+        const dynamic = sortClassesSync(entryPoint, classes)
+        if (dynamic) return dynamic
+
+        // Fallback to precomputed heuristic sort
         const ordered = cache.getClassOrder(classes)
         const sorted = [...ordered].sort((a, b) => {
           const orderA = a[1] ?? 0n

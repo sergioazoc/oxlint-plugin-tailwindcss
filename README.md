@@ -47,8 +47,8 @@ Add the plugin to your `.oxlintrc.json`:
     "tailwindcss/enforce-consistent-variable-syntax": "warn",
     "tailwindcss/consistent-variant-order": "warn",
     // Complexity
-    "tailwindcss/max-class-count": "warn",
-    "tailwindcss/enforce-consistent-line-wrapping": "warn",
+    "tailwindcss/max-class-count": "off",
+    "tailwindcss/enforce-consistent-line-wrapping": "off",
     // Restrictions
     "tailwindcss/no-restricted-classes": "off",
     "tailwindcss/no-arbitrary-value": "off",
@@ -98,7 +98,10 @@ You can also override per rule if needed:
 ```jsonc
 {
   "rules": {
-    "tailwindcss/no-unknown-classes": ["error", { "entryPoint": "src/app.css" }],
+    "tailwindcss/no-unknown-classes": [
+      "error",
+      { "entryPoint": "src/app.css" },
+    ],
   },
 }
 ```
@@ -335,7 +338,7 @@ Suggests the canonical form of a class when a shorter equivalent exists. Only kn
 
 #### `enforce-sort-order`
 
-Sorts classes according to Tailwind's official class order.
+Sorts classes according to Tailwind's official class order — identical to [oxfmt](https://oxc.rs/docs/guide/usage/formatter) and [prettier-plugin-tailwindcss](https://github.com/tailwindlabs/prettier-plugin-tailwindcss). Uses `ds.getClassOrder()` from the Tailwind CSS engine for exact results.
 
 ```tsx
 // ❌ Bad
@@ -678,7 +681,6 @@ The class parser correctly handles:
 
 - **`enforce-canonical`**: Only classes in Tailwind's class list can be canonicalized. Some valid classes (e.g., `grow-1`, `border-1`) are not in the list and won't be converted. Arbitrary values are also not canonicalized.
 - **`no-conflicting-classes`**: Uses exact CSS property name matching. Shorthand vs longhand conflicts (e.g., `p-4` vs `px-2` where `padding` conflicts with `padding-left`) are not detected.
-- **`enforce-sort-order`**: Variant-prefixed classes use the base utility's sort order as a fallback, which may not be 100% accurate for complex variant combinations.
 - **`no-dark-without-light`**: Groups by utility prefix heuristic. May not perfectly match all multi-part utility prefixes.
 - **`no-unnecessary-arbitrary-value`**: Only detects equivalences for classes with a single CSS property. Multi-property utilities may have arbitrary forms that aren't detected.
 - **Component classes**: Only first-level `@import` relative paths are followed. Deeply nested imports or absolute paths are not resolved.
