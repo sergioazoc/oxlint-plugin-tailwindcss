@@ -67,6 +67,10 @@ export class DesignSystemCache {
     return this._validClasses
   }
 
+  get maxOrder(): bigint {
+    return this._maxOrder
+  }
+
   canonicalize(className: string): string {
     const cached = this.canonicalMap.get(className)
     if (cached !== undefined) return cached
@@ -89,9 +93,7 @@ export class DesignSystemCache {
         const variantPrefix = className.slice(0, className.length - utility.length)
         // Preserve the user's ! position — enforce-consistent-important-position handles normalization
         const isPrefix = utility.startsWith('!')
-        return isPrefix
-          ? variantPrefix + '!' + canonicalBare
-          : variantPrefix + canonicalBare + '!'
+        return isPrefix ? variantPrefix + '!' + canonicalBare : variantPrefix + canonicalBare + '!'
       }
     }
 
@@ -261,6 +263,15 @@ export class DesignSystemCache {
       if (parenIdx > 0) {
         const prefix = stripped.slice(0, parenIdx)
         baseOrder = this.findOrderByPrefix(prefix)
+      }
+    }
+
+    // Dynamic numeric values: underline-offset-3, gap-13, etc. → look up prefix
+    if (baseOrder === undefined) {
+      const stripped = stripImportant(utility).bare
+      const numericMatch = /^(.+)-(\d+\.?\d*)$/.exec(stripped)
+      if (numericMatch && this.getKnownPrefixes().has(numericMatch[1])) {
+        baseOrder = this.findOrderByPrefix(numericMatch[1] + '-')
       }
     }
 

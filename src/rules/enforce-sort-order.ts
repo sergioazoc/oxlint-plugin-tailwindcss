@@ -64,13 +64,16 @@ export const enforceSortOrder = defineRule({
         const dynamic = sortClassesSync(entryPoint, classes)
         if (dynamic) return dynamic
 
-        // Fallback to precomputed heuristic sort
+        // Fallback to precomputed heuristic sort.
+        // Null-order classes (group/name, peer/name) sort first — matches
+        // the behavior of prettier-plugin-tailwindcss and oxfmt.
         const ordered = cache.getClassOrder(classes)
         const sorted = [...ordered].sort((a, b) => {
-          const orderA = a[1] ?? 0n
-          const orderB = b[1] ?? 0n
-          if (orderA < orderB) return -1
-          if (orderA > orderB) return 1
+          if (a[1] === null && b[1] === null) return 0
+          if (a[1] === null) return -1
+          if (b[1] === null) return 1
+          if (a[1] < b[1]) return -1
+          if (a[1] > b[1]) return 1
           return 0
         })
         return sorted.map(([name]) => name)
@@ -91,10 +94,11 @@ export const enforceSortOrder = defineRule({
         for (const [, groupClasses] of groups) {
           const ordered = cache.getClassOrder(groupClasses)
           ordered.sort((a, b) => {
-            const orderA = a[1] ?? 0n
-            const orderB = b[1] ?? 0n
-            if (orderA < orderB) return -1
-            if (orderA > orderB) return 1
+            if (a[1] === null && b[1] === null) return 0
+            if (a[1] === null) return -1
+            if (b[1] === null) return 1
+            if (a[1] < b[1]) return -1
+            if (a[1] > b[1]) return 1
             return 0
           })
           groupClasses.length = 0

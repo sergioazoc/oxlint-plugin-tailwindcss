@@ -39,7 +39,7 @@ async function main() {
 
   let ds;
   try {
-    const { __unstable__loadDesignSystem } = require('@tailwindcss/node');
+    const { __unstable__loadDesignSystem } = require(workerData.tailwindNodePath);
     const { readFileSync } = require('fs');
     const { dirname } = require('path');
     const css = readFileSync(cssPath, 'utf-8');
@@ -101,6 +101,11 @@ function ensureService(cssPath: string): boolean {
   initialized = true
 
   try {
+    // Resolve @tailwindcss/node from the parent thread where the plugin's
+    // dependencies are available, then pass the resolved path to the worker.
+    // This avoids module resolution issues in VS Code's extension host.
+    const tailwindNodePath = require.resolve('@tailwindcss/node')
+
     const sharedBuffer = new SharedArrayBuffer(BUFFER_SIZE)
     controlArray = new Int32Array(sharedBuffer, 0, HEADER_INTS)
     lengthView = new DataView(sharedBuffer, HEADER_INTS * 4, 4)
@@ -108,7 +113,7 @@ function ensureService(cssPath: string): boolean {
 
     worker = new Worker(WORKER_SCRIPT, {
       eval: true,
-      workerData: { sharedBuffer, cssPath },
+      workerData: { sharedBuffer, cssPath, tailwindNodePath },
     })
 
     worker.unref()

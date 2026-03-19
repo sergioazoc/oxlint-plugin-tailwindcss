@@ -1,10 +1,17 @@
 # Changelog
 
+## 0.1.9 (2026-03-19)
+
+- **Fix `enforce-sort-order` in VS Code** — The sort service worker thread failed to resolve `@tailwindcss/node` in VS Code's extension host due to a different module resolution context. The parent thread now resolves the module path via `require.resolve()` and passes it to the worker, fixing false positives that only appeared in VS Code.
+- **Fix heuristic sort for null-order classes** — Marker classes like `group/name` and `peer/name` (which return `null` from `ds.getClassOrder()`) now sort first in the heuristic fallback, matching the behavior of oxfmt and prettier-plugin-tailwindcss.
+- **Fix heuristic sort for dynamic numeric values** — Classes like `underline-offset-3` and `gap-13` that are valid in Tailwind v4 but missing from `getClassList()` now resolve their order via prefix lookup in `cache.getOrder()`, preventing incorrect sort positions in the heuristic fallback.
+- 548 tests (up from 545).
+
 ## 0.1.8 (2026-03-18)
 
 - **`enforce-consistent-important-position` default changed to suffix** — Tailwind v4's canonical form is `font-bold!` (suffix). The default was `prefix` (`!font-bold`), which is the deprecated v3 form. Using `"prefix"` may now conflict with `enforce-canonical`.
 - **`enforce-canonical` preserves `!` position** — Canonicalization no longer forces `!` to prefix. If the user wrote `-m-0!` it now canonicalizes to `m-0!` (not `!m-0`), respecting the original modifier position.
-- **`consistent-variant-order` supports `*`/`**` selectors** — Child (`*:`) and descendant (`**:`) selectors are now included in the default variant order. Fixed arbitrary variant brackets (`[...]`) no longer getting priority `-1`.
+- **`consistent-variant-order` supports `*`/`**` selectors** — Child (`\*:`) and descendant (`\*\*:`) selectors are now included in the default variant order. Fixed arbitrary variant brackets (`[...]`) no longer getting priority `-1`.
 - **Dependencies updated** — tailwindcss 4.2.2, @oxlint/plugins 1.56.0, oxlint 1.56.0, oxfmt 0.41.0, tsdown 0.21.4, @typescript/native-preview 7.0.0-dev.20260318.1.
 - 545 tests (up from 536).
 
