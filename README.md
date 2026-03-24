@@ -2,6 +2,8 @@
 
 22 Tailwind CSS linting rules for [oxlint](https://oxc.rs/docs/guide/usage/linter). Built for Tailwind CSS v4 with zero-config auto-detection, typo suggestions, and autofixes.
 
+Read the story behind this plugin: [oxlint-tailwindcss: The Linting Plugin Tailwind v4 Needed](https://sergioazocar.com/en/blog/oxlint-tailwindcss-the-linting-plugin-tailwind-v4-needed)
+
 ## Highlights
 
 - **Zero config** — Auto-detects your Tailwind CSS entry point. Works out of the box.
