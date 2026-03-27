@@ -45,7 +45,9 @@ AST visitors: `JSXAttribute`, `CallExpression`, `TaggedTemplateExpression`, `Var
 - **Entry point resolution**: rule option `entryPoint` > `settings.tailwindcss.entryPoint` > auto-detect (from linted file path).
 - **Graceful degradation**: If the design system can't load, DS-dependent rules silently skip (return from `check()`). Never crash.
 - **`!` (important) modifier**: Tailwind supports prefix (`!flex`) and suffix (`flex!`). ALL rules that do class lookups or transformations MUST strip `!` before lookups and re-add it in the same position. Cache methods (`getOrder`, `canonicalize`, `getCssProperties`, `getNamedEquivalent`) handle `!` internally via `stripImportant()`. Rules doing direct string comparisons (e.g., against `DEPRECATED_MAP`) must strip manually.
-- **Disk cache**: `sync-loader.ts` caches precomputed DS JSON in `/tmp/oxlint-tailwindcss/` keyed by `md5(path:mtime)`. Invalidates automatically when CSS changes.
+- **Disk cache**: `sync-loader.ts` caches precomputed DS JSON in `os.tmpdir()/oxlint-tailwindcss/` keyed by `md5(version:path:mtime)`. Invalidates automatically when CSS changes or cache version bumps.
+- **CSS property extraction**: `extractRootCssProps()` in the PRECOMPUTE_SCRIPT parses CSS blocks with brace-depth tracking. For plugin classes with CSS nesting (e.g. `prose` from `@tailwindcss/typography`), only top-level declarations are extracted — nested descendant selectors are skipped. Falls back to extracting all properties if root selector matching fails (e.g. escaped selectors).
+- **Modifier class detection**: Classes referenced via `[class~="..."]` attribute selectors in CSS output (e.g. `not-prose`) are added to `componentClasses` so `no-unknown-classes` recognizes them.
 - **`canonicalizeCandidates()`**: Deduplicates results — must be called one class at a time, NOT in batch.
 - **`getClassList()` gaps**: Some valid classes (`grow-1`, `border-1`, `underline-offset-3`) are missing from the list. `cache.getOrder()` falls back to prefix lookup for dynamic numeric values. Arbitrary values handled by heuristic.
 - **Floating point**: All rem/em/px operations go through `roundRemValue()`.

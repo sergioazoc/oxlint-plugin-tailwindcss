@@ -1,10 +1,15 @@
 import { resolve } from 'node:path'
-import { beforeAll } from 'vitest'
+import { beforeAll, describe, test, expect } from 'vitest'
 import { RuleTester } from 'oxlint/plugins-dev'
 import { noConflictingClasses } from '../../src/rules/no-conflicting-classes'
 import { getLoadedDesignSystem, resetDesignSystem } from '../../src/design-system/loader'
+import { loadDesignSystemSync } from '../../src/design-system/sync-loader'
+import { DesignSystemCache } from '../../src/design-system/cache'
 
 const ENTRY_POINT = resolve(__dirname, '../fixtures/default.css')
+const PROSE_ENTRY = resolve(__dirname, '../fixtures/with-typography.css')
+
+// --- Default design system tests ---
 
 beforeAll(() => {
   resetDesignSystem()
@@ -71,4 +76,30 @@ ruleTester.run('no-conflicting-classes', noConflictingClasses, {
       errors: [{ messageId: 'conflict' }],
     },
   ],
+})
+
+// --- Descendant selector filtering (prose-like classes from @tailwindcss/typography) ---
+
+describe('descendant selector filtering', () => {
+  test('prose root properties should NOT include descendant selector properties', () => {
+    const data = loadDesignSystemSync(PROSE_ENTRY)
+    expect(data).not.toBeNull()
+    const cache = DesignSystemCache.fromPrecomputed(data!)
+    const proseProps = cache.getCssProperties('prose')
+    // prose root element sets: color, max-width
+    // It should NOT include overflow-x (from :where(pre)),
+    // font-weight (from :where(h1/a/code)), text-decoration (from :where(a)), etc.
+    expect(proseProps).toContain('color')
+    expect(proseProps).toContain('max-width')
+    expect(proseProps).not.toContain('overflow-x')
+    expect(proseProps).not.toContain('text-decoration')
+  })
+
+  test('not-prose should be recognized as a valid class', () => {
+    const data = loadDesignSystemSync(PROSE_ENTRY)
+    expect(data).not.toBeNull()
+    const cache = DesignSystemCache.fromPrecomputed(data!)
+    // not-prose is referenced via [class~="not-prose"] in typography CSS output
+    expect(cache.isValid('not-prose')).toBe(true)
+  })
 })

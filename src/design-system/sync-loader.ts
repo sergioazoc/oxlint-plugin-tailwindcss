@@ -25,7 +25,7 @@ export interface PrecomputedData {
   cssProps: Record<string, string[]>
   /** variant name → sort index from the design system */
   variantOrder: Record<string, number>
-  /** Classes defined in @layer components blocks */
+  /** Classes from @layer components and modifier classes referenced via [class~="..."] */
   componentClasses: string[]
   /** arbitraryForm → namedClass for unnecessary arbitrary value detection */
   arbitraryEquivalents: Record<string, string>
@@ -187,18 +187,93 @@ async function main() {
     if (val !== null) order[name] = val.toString();
   }
 
-  // CSS properties per class — extract only from the class rule block, skip @property descriptors
+  // CSS properties per class — extract only from the ROOT selector, not descendant selectors.
+  // Plugin classes like "prose" generate CSS for both the root element (.prose { color: ...; })
+  // and descendant selectors (:where(.prose pre) { overflow-x: auto; }).
+  // Only root-level properties should be used for conflict detection.
   const cssProps = {};
   const atPropertyDescriptors = new Set(['syntax', 'inherits', 'initial-value']);
-  const propRegex = /^\\s+([\\w-]+)\\s*:/gm;
+
+  function extractRootCssProps(cssText, className) {
+    const rootProps = [];
+    const allProps = [];
+    // CSS-escape special chars in class name for selector matching
+    const escapedName = className.replace(/([^\\w-])/g, '\\\\$1');
+    const classSelector = '.' + escapedName;
+    const rawSelector = '.' + className;
+    const propRe = /^\\s+([\\w-]+)\\s*:/gm;
+
+    function isRoot(sel) {
+      for (const s of [classSelector, rawSelector]) {
+        if (sel === s) return true;
+        if (sel.length > s.length && sel.startsWith(s) && sel[s.length] === ':') return true;
+      }
+      return false;
+    }
+
+    // Extract only top-level declarations from a block body (skip nested blocks).
+    // For CSS nesting like .prose { color: ...; :where(a) { color: ...; } },
+    // only extracts "color" from the top level, not from the nested :where(a) block.
+    function extractTopLevelProps(body) {
+      const props = [];
+      let depth = 0;
+      let lineStart = 0;
+      for (let i = 0; i <= body.length; i++) {
+        if (i === body.length || body[i] === '\\n') {
+          if (depth === 0) {
+            const line = body.slice(lineStart, i);
+            const m = /^\\s+([\\w-]+)\\s*:/.exec(line);
+            if (m && !atPropertyDescriptors.has(m[1])) props.push(m[1]);
+          }
+          lineStart = i + 1;
+        } else if (body[i] === '{') {
+          depth++;
+        } else if (body[i] === '}') {
+          depth--;
+        }
+      }
+      return props;
+    }
+
+    function processText(text) {
+      let i = 0;
+      while (i < text.length) {
+        while (i < text.length && /\\s/.test(text[i])) i++;
+        if (i >= text.length) break;
+        const braceIdx = text.indexOf('{', i);
+        if (braceIdx === -1) break;
+        const selector = text.slice(i, braceIdx).trim();
+        let depth = 1, j = braceIdx + 1;
+        while (j < text.length && depth > 0) {
+          if (text[j] === '{') depth++;
+          if (text[j] === '}') depth--;
+          j++;
+        }
+        const body = text.slice(braceIdx + 1, j - 1);
+        if (selector.startsWith('@media') || selector.startsWith('@supports') || selector.startsWith('@layer')) {
+          processText(body);
+        } else if (!selector.startsWith('@')) {
+          propRe.lastIndex = 0;
+          let m;
+          while ((m = propRe.exec(body)) !== null) {
+            if (!atPropertyDescriptors.has(m[1])) allProps.push(m[1]);
+          }
+          if (isRoot(selector)) rootProps.push(...extractTopLevelProps(body));
+        }
+        i = j;
+      }
+    }
+
+    processText(cssText);
+    // Use root-only properties when found; fall back to all for classes with
+    // escaped selectors or single-block output where root matching may miss.
+    const result = rootProps.length > 0 ? rootProps : allProps;
+    return [...new Set(result)];
+  }
+
   for (let i = 0; i < classNames.length; i++) {
     if (cssResults[i]) {
-      const props = [];
-      let match;
-      propRegex.lastIndex = 0;
-      while ((match = propRegex.exec(cssResults[i])) !== null) {
-        if (!atPropertyDescriptors.has(match[1])) props.push(match[1]);
-      }
+      const props = extractRootCssProps(cssResults[i], classNames[i]);
       if (props.length > 0) cssProps[classNames[i]] = props;
     }
   }
@@ -214,6 +289,20 @@ async function main() {
 
   // Component classes from @layer components
   const componentClasses = extractComponentClasses(cssPath, base);
+
+  // Extract class names from attribute selectors [class~="..."] in CSS output.
+  // Plugins like @tailwindcss/typography use these for modifier classes (e.g. "not-prose")
+  // that don't generate their own CSS but are referenced in other classes' selectors.
+  const attrClassRe = /\\[class~="([^"]+)"\\]/g;
+  for (let i = 0; i < cssResults.length; i++) {
+    if (cssResults[i]) {
+      let acm;
+      attrClassRe.lastIndex = 0;
+      while ((acm = attrClassRe.exec(cssResults[i])) !== null) {
+        componentClasses.push(acm[1]);
+      }
+    }
+  }
 
   // Arbitrary equivalents: map arbitrary forms to named equivalents
   const arbitraryEquivalents = {};
@@ -256,7 +345,7 @@ main().catch(e => { process.stderr.write(e.message); process.exit(1); });
 const CACHE_DIR = join(tmpdir(), 'oxlint-tailwindcss')
 
 // Bump this when precompute logic changes to invalidate disk cache
-const CACHE_VERSION = 8
+const CACHE_VERSION = 10
 
 function getCachePath(cssPath: string, mtime: number): string {
   const hash = createHash('md5').update(`v${CACHE_VERSION}:${cssPath}:${mtime}`).digest('hex')

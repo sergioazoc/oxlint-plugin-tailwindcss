@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.10 (2026-03-27)
+
+- **Fix `no-conflicting-classes` false positives with plugin classes** — Classes from plugins like `@tailwindcss/typography` (`prose`) generate CSS with nested descendant selectors (`:where(.prose pre)`, `:where(.prose a)`, etc.). Previously, ALL properties from descendant selectors were treated as if they applied to the root element, causing false conflicts. Now only root-level CSS properties are used for conflict detection. Example: `prose overflow-x-auto` no longer reports a conflict because `overflow-x` only applies to `.prose pre`, not to `.prose` itself.
+- **Fix `no-unknown-classes` false positive for modifier classes** — Classes like `not-prose` (from `@tailwindcss/typography`) that don't generate their own CSS but are referenced via `[class~="not-prose"]` attribute selectors in other classes' output are now recognized as valid.
+- 550 tests (up from 548).
+
 ## 0.1.9 (2026-03-19)
 
 - **Fix `enforce-sort-order` in VS Code** — The sort service worker thread failed to resolve `@tailwindcss/node` in VS Code's extension host due to a different module resolution context. The parent thread now resolves the module path via `require.resolve()` and passes it to the worker, fixing false positives that only appeared in VS Code.
