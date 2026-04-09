@@ -1,13 +1,5 @@
 import { defineRule } from '@oxlint/plugins'
-import {
-  extractFromJSXAttribute,
-  extractFromCallExpression,
-  extractFromTaggedTemplate,
-  extractFromVariableDeclarator,
-  DEFAULT_EXTRACTOR_CONFIG,
-  preserveSpaces,
-  type ClassLocation,
-} from '../utils/extractors'
+import { createExtractorVisitors, preserveSpaces, type ClassLocation } from '../utils/extractors'
 import { splitClasses } from '../utils/class-splitter'
 import { splitUtilityAndVariant } from '../utils/class-parser'
 import { createLazyLoader } from '../design-system/loader'
@@ -118,19 +110,6 @@ export const noDeprecatedClasses = defineRule({
       }
     }
 
-    return {
-      JSXAttribute(node) {
-        check(extractFromJSXAttribute(node, DEFAULT_EXTRACTOR_CONFIG))
-      },
-      CallExpression(node) {
-        check(extractFromCallExpression(node, DEFAULT_EXTRACTOR_CONFIG))
-      },
-      TaggedTemplateExpression(node) {
-        check(extractFromTaggedTemplate(node, DEFAULT_EXTRACTOR_CONFIG))
-      },
-      VariableDeclarator(node) {
-        check(extractFromVariableDeclarator(node, DEFAULT_EXTRACTOR_CONFIG))
-      },
-    }
+    return createExtractorVisitors(context, check)
   },
 })

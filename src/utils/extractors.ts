@@ -1,4 +1,5 @@
 import type { ESTree } from '@oxlint/plugins'
+import type { PluginSettings } from '../types'
 
 export interface ClassLocation {
   value: string
@@ -45,9 +46,96 @@ export const DEFAULT_EXTRACTOR_CONFIG: ExtractorConfig = {
     'clb',
     'cnb',
     'objstr',
+    'classed',
   ],
   tags: ['tw'],
   variablePatterns: DEFAULT_VARIABLE_PATTERNS,
+}
+
+// --- Custom config resolution via settings.tailwindcss ---
+
+let _cachedConfig: ExtractorConfig | null = null
+let _settingsResolved = false
+
+function mergeUnique(defaults: string[], extras?: string[]): string[] {
+  if (!extras || extras.length === 0) return defaults
+  const set = new Set(defaults)
+  for (const e of extras) set.add(e)
+  return [...set]
+}
+
+/**
+ * Returns the extractor config, merging defaults with user settings from
+ * `settings.tailwindcss`. Caches after the first successful settings read.
+ * Falls back to DEFAULT_EXTRACTOR_CONFIG if settings are unavailable.
+ */
+export function getExtractorConfig(context: {
+  settings?: Readonly<Record<string, unknown>>
+}): ExtractorConfig {
+  if (_settingsResolved) return _cachedConfig!
+
+  let tw: PluginSettings | undefined
+  try {
+    const raw = context.settings?.tailwindcss
+    if (raw && typeof raw === 'object') {
+      tw = raw as PluginSettings
+    }
+    _settingsResolved = true
+  } catch {
+    // createOnce — settings not available yet, return defaults without caching
+    return DEFAULT_EXTRACTOR_CONFIG
+  }
+
+  if (!tw) {
+    _cachedConfig = DEFAULT_EXTRACTOR_CONFIG
+    return _cachedConfig
+  }
+
+  _cachedConfig = {
+    attributes: mergeUnique(DEFAULT_EXTRACTOR_CONFIG.attributes, tw.attributes),
+    callees: mergeUnique(DEFAULT_EXTRACTOR_CONFIG.callees, tw.callees),
+    tags: mergeUnique(DEFAULT_EXTRACTOR_CONFIG.tags, tw.tags),
+    variablePatterns: [
+      ...DEFAULT_EXTRACTOR_CONFIG.variablePatterns,
+      ...(tw.variablePatterns ?? []).map((p) => new RegExp(p)),
+    ],
+  }
+  return _cachedConfig
+}
+
+/** Reset cached config — for test isolation */
+export function resetExtractorConfig(): void {
+  _cachedConfig = null
+  _settingsResolved = false
+}
+
+/**
+ * Creates the 4 standard AST visitor callbacks that all rules use.
+ * Resolves extractor config lazily from context.settings on first visitor call.
+ */
+export function createExtractorVisitors(
+  context: { settings?: Readonly<Record<string, unknown>> },
+  check: (locations: ClassLocation[]) => void,
+): {
+  JSXAttribute: (node: ESTree.JSXAttribute) => void
+  CallExpression: (node: ESTree.CallExpression) => void
+  TaggedTemplateExpression: (node: ESTree.TaggedTemplateExpression) => void
+  VariableDeclarator: (node: ESTree.VariableDeclarator) => void
+} {
+  return {
+    JSXAttribute(node) {
+      check(extractFromJSXAttribute(node, getExtractorConfig(context)))
+    },
+    CallExpression(node) {
+      check(extractFromCallExpression(node, getExtractorConfig(context)))
+    },
+    TaggedTemplateExpression(node) {
+      check(extractFromTaggedTemplate(node, getExtractorConfig(context)))
+    },
+    VariableDeclarator(node) {
+      check(extractFromVariableDeclarator(node, getExtractorConfig(context)))
+    },
+  }
 }
 
 /**
@@ -74,9 +162,14 @@ export function extractFromJSXAttribute(
     ]
   }
 
-  // className={expression}
+  // className={expression} or classNames={{ root: "flex" }}
   if (node.value.type === 'JSXExpressionContainer') {
-    return extractFromExpression(node.value.expression)
+    const expr = node.value.expression
+    // classNames={{ root: "flex flex-col", label: "text-sm" }} — extract string values
+    if (expr.type === 'ObjectExpression') {
+      return extractObjectValues(expr as ESTree.ObjectExpression)
+    }
+    return extractFromExpression(expr)
   }
 
   return []
@@ -95,6 +188,7 @@ export function extractFromCallExpression(
 
   if (calleeName === 'cva') return extractFromCvaCall(node)
   if (calleeName === 'tv') return extractFromTvCall(node)
+  if (calleeName === 'classed') return extractFromClassedCall(node)
 
   const results: ClassLocation[] = []
   for (const arg of node.arguments) {
@@ -114,6 +208,53 @@ export function extractFromTaggedTemplate(
   if (!tagName || !config.tags.includes(tagName)) return []
 
   return extractFromTemplateLiteral(node.quasi)
+}
+
+/**
+ * Extracts class string values from an ObjectExpression in a JSX attribute.
+ * For: classNames={{ root: "flex flex-col", label: "text-sm" }}
+ * Recurses into each property value via extractFromExpression.
+ */
+function extractObjectValues(node: ESTree.ObjectExpression): ClassLocation[] {
+  const results: ClassLocation[] = []
+  for (const prop of node.properties) {
+    if (prop.type === 'Property') {
+      results.push(...extractFromExpression(prop.value))
+    }
+  }
+  return results
+}
+
+/**
+ * Extracts class locations from a classed() call (tw-classed).
+ * First string argument is the element type (skipped), rest are class strings
+ * or cva-like config objects.
+ * classed("button", "flex items-center", { variants: { ... } })
+ */
+function extractFromClassedCall(node: ESTree.CallExpression): ClassLocation[] {
+  const results: ClassLocation[] = []
+  let skippedFirst = false
+
+  for (const arg of node.arguments) {
+    // Skip the first string argument (element type like "button", "div")
+    if (!skippedFirst && arg.type === 'Literal' && typeof arg.value === 'string') {
+      skippedFirst = true
+      continue
+    }
+    // If first arg is a component reference (Identifier), also skip it
+    if (!skippedFirst && arg.type === 'Identifier') {
+      skippedFirst = true
+      continue
+    }
+    skippedFirst = true
+
+    if (arg.type === 'ObjectExpression') {
+      results.push(...extractFromCvaConfig(arg as ESTree.ObjectExpression))
+    } else {
+      results.push(...extractFromExpression(arg))
+    }
+  }
+  return results
 }
 
 /**

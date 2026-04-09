@@ -1,5 +1,11 @@
+import { beforeEach, describe } from 'vitest'
 import { RuleTester } from 'oxlint/plugins-dev'
 import { noDuplicateClasses } from '../../src/rules/no-duplicate-classes'
+import { resetExtractorConfig } from '../../src/utils/extractors'
+
+beforeEach(() => {
+  resetExtractorConfig()
+})
 
 const ruleTester = new RuleTester()
 
@@ -146,4 +152,173 @@ ruleTester.run('no-duplicate-classes', noDuplicateClasses, {
       output: '<div className="flex" />',
     },
   ],
+})
+
+// --- Custom extractor configuration via settings ---
+
+describe('custom extractor settings', () => {
+  const settingsTester = new RuleTester()
+
+  // Custom attributes
+  settingsTester.run('no-duplicate-classes (custom attributes)', noDuplicateClasses, {
+    valid: [
+      // Without custom settings, xyzClassName is ignored
+      { code: '<div xyzClassName="flex flex" />', filename: 'test.tsx' },
+    ],
+    invalid: [
+      // With custom attribute, duplicates are detected
+      {
+        code: '<div xyzClassName="flex flex items-center" />',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { attributes: ['xyzClassName'] } },
+        errors: [{ messageId: 'duplicate' }],
+        output: '<div xyzClassName="flex items-center" />',
+      },
+    ],
+  })
+
+  // Custom callees
+  settingsTester.run('no-duplicate-classes (custom callees)', noDuplicateClasses, {
+    valid: [
+      // Without custom settings, myHelper is ignored
+      { code: 'myHelper("flex flex")', filename: 'test.tsx' },
+    ],
+    invalid: [
+      {
+        code: 'myHelper("flex flex items-center")',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { callees: ['myHelper'] } },
+        errors: [{ messageId: 'duplicate' }],
+        output: 'myHelper("flex items-center")',
+      },
+    ],
+  })
+
+  // Object values in JSX attributes
+  settingsTester.run('no-duplicate-classes (object values in JSX)', noDuplicateClasses, {
+    valid: [
+      {
+        code: '<div classNames={{ root: "flex items-center" }} />',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { attributes: ['classNames'] } },
+      },
+    ],
+    invalid: [
+      {
+        code: '<div classNames={{ root: "flex flex items-center" }} />',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { attributes: ['classNames'] } },
+        errors: [{ messageId: 'duplicate' }],
+        output: '<div classNames={{ root: "flex items-center" }} />',
+      },
+      // Multiple slots with duplicates in each
+      {
+        code: '<div classNames={{ root: "flex flex", label: "p-2 p-2" }} />',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { attributes: ['classNames'] } },
+        errors: [{ messageId: 'duplicate' }, { messageId: 'duplicate' }],
+        output: '<div classNames={{ root: "flex", label: "p-2" }} />',
+      },
+      // Ternary expression in object value
+      {
+        code: '<div classNames={{ root: isActive ? "flex flex" : "block" }} />',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { attributes: ['classNames'] } },
+        errors: [{ messageId: 'duplicate' }],
+        output: '<div classNames={{ root: isActive ? "flex" : "block" }} />',
+      },
+      // Logical expression in object value
+      {
+        code: '<div classNames={{ root: isActive && "flex flex" }} />',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { attributes: ['classNames'] } },
+        errors: [{ messageId: 'duplicate' }],
+        output: '<div classNames={{ root: isActive && "flex" }} />',
+      },
+    ],
+  })
+
+  // Custom tags
+  settingsTester.run('no-duplicate-classes (custom tags)', noDuplicateClasses, {
+    valid: [
+      // Without custom settings, css tag is ignored
+      { code: 'css`flex flex`', filename: 'test.tsx' },
+    ],
+    invalid: [
+      {
+        code: 'css`flex flex items-center`',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { tags: ['css'] } },
+        errors: [{ messageId: 'duplicate' }],
+        output: 'css`flex items-center`',
+      },
+    ],
+  })
+
+  // Custom variable patterns
+  settingsTester.run('no-duplicate-classes (custom variablePatterns)', noDuplicateClasses, {
+    valid: [
+      // Without custom settings, twStyles is ignored
+      { code: 'const twStyles = "flex flex"', filename: 'test.tsx' },
+    ],
+    invalid: [
+      {
+        code: 'const twStyles = "flex flex items-center"',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { variablePatterns: ['^tw'] } },
+        errors: [{ messageId: 'duplicate' }],
+        output: 'const twStyles = "flex items-center"',
+      },
+    ],
+  })
+})
+
+// --- tw-classed support ---
+
+describe('tw-classed support', () => {
+  const classedTester = new RuleTester()
+
+  classedTester.run('no-duplicate-classes (classed)', noDuplicateClasses, {
+    valid: [
+      // First arg (element type) is skipped
+      { code: 'classed("button", "flex items-center")', filename: 'test.tsx' },
+      // Component reference as first arg
+      { code: 'classed(Button, "flex items-center")', filename: 'test.tsx' },
+      // Config object with no duplicates
+      {
+        code: 'classed("div", { variants: { size: { sm: "p-2", lg: "p-4" } } })',
+        filename: 'test.tsx',
+      },
+    ],
+    invalid: [
+      // Duplicate in class string (element type "button" NOT flagged)
+      {
+        code: 'classed("button", "flex flex items-center")',
+        filename: 'test.tsx',
+        errors: [{ messageId: 'duplicate' }],
+        output: 'classed("button", "flex items-center")',
+      },
+      // Duplicate in variant value
+      {
+        code: 'classed("div", { variants: { size: { sm: "p-2 p-2" } } })',
+        filename: 'test.tsx',
+        errors: [{ messageId: 'duplicate' }],
+        output: 'classed("div", { variants: { size: { sm: "p-2" } } })',
+      },
+      // Duplicate in compoundVariants
+      {
+        code: 'classed("div", { compoundVariants: [{ class: "p-2 p-2" }] })',
+        filename: 'test.tsx',
+        errors: [{ messageId: 'duplicate' }],
+        output: 'classed("div", { compoundVariants: [{ class: "p-2" }] })',
+      },
+      // Component ref as first arg, duplicate in second
+      {
+        code: 'classed(Button, "flex flex")',
+        filename: 'test.tsx',
+        errors: [{ messageId: 'duplicate' }],
+        output: 'classed(Button, "flex")',
+      },
+    ],
+  })
 })

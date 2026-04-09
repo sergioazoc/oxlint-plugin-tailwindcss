@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0 (2026-04-09)
+
+- **Custom class detection via settings** ([#1](https://github.com/sergioazoc/oxlint-tailwindcss/issues/1)) — New `settings.tailwindcss` options to extend class detection: `attributes` (additional JSX attribute names), `callees` (additional function names), `tags` (additional tagged template tags), and `variablePatterns` (additional regex patterns for variable names). All values are additive to the built-in defaults. Applies to all 22 rules at once.
+- **Object-valued JSX attribute support** ([#1](https://github.com/sergioazoc/oxlint-tailwindcss/issues/1)) — Attributes like `classNames={{ root: "flex", label: "text-sm" }}` now extract class strings from object values. Supports string literals, ternaries, and logical expressions in values.
+- **Built-in tw-classed support** ([#2](https://github.com/sergioazoc/oxlint-tailwindcss/issues/2)) — `classed()` calls are now detected by default. The first argument (element type or component reference) is skipped, and remaining arguments are extracted as class strings or cva-like config objects (variants, compoundVariants).
+- **Fix `no-conflicting-classes` false positive with `inset-ring` and `shadow`** ([#3](https://github.com/sergioazoc/oxlint-tailwindcss/issues/3)) — Classes like `inset-ring-1` and `shadow-md` both set `box-shadow` but compose via different CSS custom properties (`--tw-inset-ring-shadow` vs `--tw-shadow`). These are no longer reported as conflicting. The fix uses a CSS custom property heuristic: if two classes both use `--tw-*` variables but none overlap, they are composing, not conflicting. This also fixes false positives for `inset-shadow` + `shadow`, `inset-ring` + `ring`, and all other composition patterns (filter, backdrop-filter, contain, font-variant-numeric, touch-action, border-spacing, mask).
+- **Internal: `createExtractorVisitors` helper** — All 22 rules now use a shared visitor factory instead of duplicating 4 AST visitor callbacks each. Reduces boilerplate and ensures custom config is applied uniformly.
+- **Dependencies updated** — @oxlint/plugins 1.59.0, oxlint 1.59.0, oxfmt 0.44.0.
+- 591 tests (up from 571).
+
 ## 0.1.10 (2026-03-27)
 
 - **Fix `no-conflicting-classes` false positives with plugin classes** — Classes from plugins like `@tailwindcss/typography` (`prose`) generate CSS with nested descendant selectors (`:where(.prose pre)`, `:where(.prose a)`, etc.). Previously, ALL properties from descendant selectors were treated as if they applied to the root element, causing false conflicts. Now only root-level CSS properties are used for conflict detection. Example: `prose overflow-x-auto` no longer reports a conflict because `overflow-x` only applies to `.prose pre`, not to `.prose` itself.

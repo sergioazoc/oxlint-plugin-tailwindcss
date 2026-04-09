@@ -27,16 +27,30 @@ DS-dependent rules: `no-unknown-classes`, `no-conflicting-classes`, `no-deprecat
 
 ## Extraction System
 
-`extractors.ts` is the shared class-detection layer used by all 22 rules. Every rule delegates to the same extractors via `DEFAULT_EXTRACTOR_CONFIG`:
+`extractors.ts` is the shared class-detection layer used by all 22 rules. Every rule delegates to `createExtractorVisitors(context, check)` which generates the 4 standard AST visitors and resolves the extractor config lazily from `settings.tailwindcss`.
+
+**Default detection targets** (extended additively via settings):
 
 - **Attributes**: `className`, `class` (JSX)
-- **Callees** (13): `cn`, `clsx`, `cva`, `twMerge`, `tv`, `cx`, `classnames`, `ctl`, `twJoin`, `cc`, `clb`, `cnb`, `objstr`
+- **Callees** (14): `cn`, `clsx`, `cva`, `twMerge`, `tv`, `cx`, `classnames`, `ctl`, `twJoin`, `cc`, `clb`, `cnb`, `objstr`, `classed`
 - **Tags**: `tw` (tagged template literals: `` tw`bg-red-500` ``)
 - **Variable patterns**: identifiers matching `/^classNames?$/`, `/^classes$/`, `/^styles?$/`
-- **Deep extraction**: `cva()` understands `variants`, `compoundVariants`, ignores `defaultVariants`. `tv()` understands `base`, `slots`, `variants` (with slot sub-objects), `compoundVariants`, `compoundSlots`.
+
+**Custom configuration** via `settings.tailwindcss` (all additive to defaults):
+
+- `attributes: string[]` — additional JSX attribute names (e.g. `["xyzClassName", "classNames"]`)
+- `callees: string[]` — additional function names (e.g. `["myHelper"]`)
+- `tags: string[]` — additional tagged template tags
+- `variablePatterns: string[]` — additional regex patterns for variable names (as strings, compiled to RegExp)
+
+Config is resolved lazily by `getExtractorConfig(context)` on first visitor call (settings unavailable in `createOnce`). Cached in module-level variable; `resetExtractorConfig()` for test isolation.
+
+**Deep extraction**: `cva()` understands `variants`, `compoundVariants`, ignores `defaultVariants`. `tv()` understands `base`, `slots`, `variants` (with slot sub-objects), `compoundVariants`, `compoundSlots`. `classed()` (tw-classed) skips first arg (element type), then extracts class strings and cva-like config from remaining args.
+
+- **JSX object values**: `classNames={{ root: "flex", label: "text-sm" }}` extracts string values from the object (not keys). This is distinct from call-expression objects like `cn({ "bg-red-500": cond })` which extract keys.
 - **Expressions**: ternaries (`cond ? "a" : "b"`), logical (`flag && "a"`), object keys (`cn({ "bg-red-500": cond })`), template literals with leading/trailing space preservation across expressions.
 
-AST visitors: `JSXAttribute`, `CallExpression`, `TaggedTemplateExpression`, `VariableDeclarator`. All rules follow the same pattern — call `extractFrom*()`, then run rule logic on the returned `ClassLocation[]`.
+AST visitors: `JSXAttribute`, `CallExpression`, `TaggedTemplateExpression`, `VariableDeclarator`. All rules use `createExtractorVisitors(context, check)` to generate these visitors.
 
 ## Key Constraints
 

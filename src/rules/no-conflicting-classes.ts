@@ -1,12 +1,5 @@
 import { defineRule } from '@oxlint/plugins'
-import {
-  extractFromJSXAttribute,
-  extractFromCallExpression,
-  extractFromTaggedTemplate,
-  extractFromVariableDeclarator,
-  DEFAULT_EXTRACTOR_CONFIG,
-  type ClassLocation,
-} from '../utils/extractors'
+import { createExtractorVisitors, type ClassLocation } from '../utils/extractors'
 import { splitClasses } from '../utils/class-splitter'
 import { extractUtility, getVariantPrefix } from '../utils/class-parser'
 import { createLazyLoader } from '../design-system/loader'
@@ -65,13 +58,15 @@ export const noConflictingClasses = defineRule({
             propsMap.set(cls, props)
           }
 
-          // Utilities that share a CSS property but are designed to compose
+          // Utilities that share a CSS property but are designed to compose.
+          // Most composition is detected automatically via CSS custom properties
+          // (see isCompositionViaCssVars below). These groups cover cases where
+          // the heuristic fails: shared intermediate vars or missing custom props.
           const COMPLEMENTARY_GROUPS = [
-            /^(?:from|via|to)-/, // gradient stops
-            /^(?:shadow|ring|ring-offset)-/, // box-shadow composition
-            /^(?:transition|duration|ease|delay)(?:-|$)/, // transition composition
-            /^-?(?:translate|scale|rotate|skew)-/, // transform axis composition (x + y)
-            /^prose(?:-|$)/, // prose + prose-sm/lg/xl modifiers + max-w override
+            /^(?:from|via|to)-/, // gradient stops (share --tw-gradient-stops)
+            /^(?:transition|duration|ease|delay)(?:-|$)/, // transition composition (transition-all has no custom vars)
+            /^-?(?:translate|scale|rotate|skew)-/, // transform axis composition (overlap not in cssProps)
+            /^prose(?:-|$)/, // prose + prose-sm/lg/xl modifiers
           ]
           // Pairs where one utility sets defaults and the other overrides a specific property
           const COMPOSITION_PAIRS: [RegExp, RegExp][] = [
@@ -81,7 +76,25 @@ export const noConflictingClasses = defineRule({
             [/^prose(?:-|$)/, /^max-w-/], // prose sets max-width, max-w-* overrides
           ]
 
-          function shouldSkipPair(a: string, b: string): boolean {
+          // Detect composition via CSS custom properties: if both classes use
+          // custom properties (--tw-*) but none overlap, they compose into a
+          // shared shorthand (e.g. shadow + ring both set box-shadow via different vars).
+          function isCompositionViaCssVars(propsA: string[], propsB: string[]): boolean {
+            const customA = propsA.filter((p) => p.startsWith('--'))
+            const customB = propsB.filter((p) => p.startsWith('--'))
+            if (customA.length === 0 || customB.length === 0) return false
+            return !customA.some((p) => customB.includes(p))
+          }
+
+          function shouldSkipPair(
+            a: string,
+            b: string,
+            propsA: string[],
+            propsB: string[],
+          ): boolean {
+            // CSS custom property composition (handles shadow/ring, filter, contain, etc.)
+            if (isCompositionViaCssVars(propsA, propsB)) return true
+
             let ua = extractUtility(a)
             let ub = extractUtility(b)
             if (ua.startsWith('!')) ua = ua.slice(1)
@@ -109,7 +122,7 @@ export const noConflictingClasses = defineRule({
               const propsB = propsMap.get(classB) ?? []
 
               // Skip pairs that share CSS properties but target different elements/roles
-              if (shouldSkipPair(classA, classB)) continue
+              if (shouldSkipPair(classA, classB, propsA, propsB)) continue
 
               const overlap = propsA.filter((p) => propsB.includes(p))
               if (overlap.length > 0) {
@@ -135,19 +148,6 @@ export const noConflictingClasses = defineRule({
       }
     }
 
-    return {
-      JSXAttribute(node) {
-        check(extractFromJSXAttribute(node, DEFAULT_EXTRACTOR_CONFIG))
-      },
-      CallExpression(node) {
-        check(extractFromCallExpression(node, DEFAULT_EXTRACTOR_CONFIG))
-      },
-      TaggedTemplateExpression(node) {
-        check(extractFromTaggedTemplate(node, DEFAULT_EXTRACTOR_CONFIG))
-      },
-      VariableDeclarator(node) {
-        check(extractFromVariableDeclarator(node, DEFAULT_EXTRACTOR_CONFIG))
-      },
-    }
+    return createExtractorVisitors(context, check)
   },
 })

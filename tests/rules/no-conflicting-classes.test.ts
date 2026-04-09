@@ -32,6 +32,15 @@ ruleTester.run('no-conflicting-classes', noConflictingClasses, {
     // shadow-* and ring-* compose via CSS custom properties in box-shadow
     { code: '<div className="shadow-sm ring-2" />', filename: 'test.tsx' },
     { code: '<div className="shadow-lg ring-1 ring-offset-2" />', filename: 'test.tsx' },
+    // inset-ring-* and inset-shadow-* compose with shadow/ring (#3)
+    { code: '<div className="inset-ring-1 shadow-md" />', filename: 'test.tsx' },
+    { code: '<div className="inset-shadow-sm shadow-lg" />', filename: 'test.tsx' },
+    { code: '<div className="inset-ring-2 ring-2" />', filename: 'test.tsx' },
+    { code: '<div className="inset-shadow-xs ring-1 shadow-sm" />', filename: 'test.tsx' },
+    {
+      code: '<div className="inset-ring-1 inset-shadow-sm shadow-md ring-2 ring-offset-2" />',
+      filename: 'test.tsx',
+    },
     // text-* sets line-height as default, leading-* overrides it
     { code: '<div className="text-sm leading-relaxed" />', filename: 'test.tsx' },
     { code: '<div className="text-xs leading-tight" />', filename: 'test.tsx' },
@@ -44,6 +53,26 @@ ruleTester.run('no-conflicting-classes', noConflictingClasses, {
     // transform axes compose (x + y are independent)
     { code: '<div className="translate-x-2 -translate-y-2" />', filename: 'test.tsx' },
     { code: '<div className="scale-x-50 scale-y-75" />', filename: 'test.tsx' },
+    // backdrop-filter utilities compose via CSS custom properties
+    { code: '<div className="backdrop-blur-lg backdrop-brightness-50" />', filename: 'test.tsx' },
+    {
+      code: '<div className="backdrop-blur-sm backdrop-contrast-100 backdrop-saturate-150" />',
+      filename: 'test.tsx',
+    },
+    // filter utilities compose via CSS custom properties
+    { code: '<div className="blur-lg brightness-50" />', filename: 'test.tsx' },
+    { code: '<div className="blur-sm drop-shadow-md contrast-100" />', filename: 'test.tsx' },
+    // contain-* utilities compose via CSS custom properties
+    { code: '<div className="contain-layout contain-paint" />', filename: 'test.tsx' },
+    { code: '<div className="contain-size contain-style" />', filename: 'test.tsx' },
+    // font-variant-numeric utilities compose
+    { code: '<div className="lining-nums tabular-nums" />', filename: 'test.tsx' },
+    { code: '<div className="ordinal slashed-zero" />', filename: 'test.tsx' },
+    // touch-action utilities compose
+    { code: '<div className="touch-pan-x touch-pan-y" />', filename: 'test.tsx' },
+    { code: '<div className="touch-pan-x touch-pinch-zoom" />', filename: 'test.tsx' },
+    // border-spacing axis composition
+    { code: '<div className="border-spacing-x-2 border-spacing-y-4" />', filename: 'test.tsx' },
   ],
   invalid: [
     {
@@ -72,6 +101,32 @@ ruleTester.run('no-conflicting-classes', noConflictingClasses, {
     // ! important modifier conflict
     {
       code: '<div className="!text-red-500 !text-blue-500" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'conflict' }],
+    },
+    // Same-utility conflicts within composition groups must still be detected
+    {
+      code: '<div className="shadow-sm shadow-lg" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'conflict' }],
+    },
+    {
+      code: '<div className="blur-sm blur-lg" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'conflict' }],
+    },
+    {
+      code: '<div className="backdrop-blur-sm backdrop-blur-lg" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'conflict' }],
+    },
+    {
+      code: '<div className="ring-1 ring-4" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'conflict' }],
+    },
+    {
+      code: '<div className="inset-ring-1 inset-ring-4" />',
       filename: 'test.tsx',
       errors: [{ messageId: 'conflict' }],
     },

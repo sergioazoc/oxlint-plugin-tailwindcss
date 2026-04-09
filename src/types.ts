@@ -1,6 +1,14 @@
 export interface PluginSettings {
   entryPoint?: string
   debug?: boolean
+  /** Additional JSX attribute names to scan for Tailwind classes (added to defaults) */
+  attributes?: string[]
+  /** Additional function names to scan for Tailwind classes (added to defaults) */
+  callees?: string[]
+  /** Additional tagged template tag names to scan (added to defaults) */
+  tags?: string[]
+  /** Additional regex patterns (as strings) for variable names to scan (added to defaults) */
+  variablePatterns?: string[]
 }
 
 export interface RuleOptions {

@@ -1,12 +1,5 @@
 import { defineRule } from '@oxlint/plugins'
-import {
-  extractFromJSXAttribute,
-  extractFromCallExpression,
-  extractFromTaggedTemplate,
-  extractFromVariableDeclarator,
-  DEFAULT_EXTRACTOR_CONFIG,
-  type ClassLocation,
-} from '../utils/extractors'
+import { createExtractorVisitors, type ClassLocation } from '../utils/extractors'
 import { splitClasses } from '../utils/class-splitter'
 import { hasArbitraryValue, extractUtility } from '../utils/class-parser'
 import { safeOptions } from '../types'
@@ -70,19 +63,6 @@ export const noArbitraryValue = defineRule({
       }
     }
 
-    return {
-      JSXAttribute(node) {
-        check(extractFromJSXAttribute(node, DEFAULT_EXTRACTOR_CONFIG))
-      },
-      CallExpression(node) {
-        check(extractFromCallExpression(node, DEFAULT_EXTRACTOR_CONFIG))
-      },
-      TaggedTemplateExpression(node) {
-        check(extractFromTaggedTemplate(node, DEFAULT_EXTRACTOR_CONFIG))
-      },
-      VariableDeclarator(node) {
-        check(extractFromVariableDeclarator(node, DEFAULT_EXTRACTOR_CONFIG))
-      },
-    }
+    return createExtractorVisitors(context, check)
   },
 })

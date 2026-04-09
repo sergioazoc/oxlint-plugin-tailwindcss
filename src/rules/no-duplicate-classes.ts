@@ -1,13 +1,5 @@
 import { defineRule } from '@oxlint/plugins'
-import {
-  extractFromJSXAttribute,
-  extractFromCallExpression,
-  extractFromTaggedTemplate,
-  extractFromVariableDeclarator,
-  DEFAULT_EXTRACTOR_CONFIG,
-  preserveSpaces,
-  type ClassLocation,
-} from '../utils/extractors'
+import { createExtractorVisitors, preserveSpaces, type ClassLocation } from '../utils/extractors'
 import { splitClasses } from '../utils/class-splitter'
 
 export const noDuplicateClasses = defineRule({
@@ -55,19 +47,6 @@ export const noDuplicateClasses = defineRule({
       }
     }
 
-    return {
-      JSXAttribute(node) {
-        check(extractFromJSXAttribute(node, DEFAULT_EXTRACTOR_CONFIG))
-      },
-      CallExpression(node) {
-        check(extractFromCallExpression(node, DEFAULT_EXTRACTOR_CONFIG))
-      },
-      TaggedTemplateExpression(node) {
-        check(extractFromTaggedTemplate(node, DEFAULT_EXTRACTOR_CONFIG))
-      },
-      VariableDeclarator(node) {
-        check(extractFromVariableDeclarator(node, DEFAULT_EXTRACTOR_CONFIG))
-      },
-    }
+    return createExtractorVisitors(context, check)
   },
 })

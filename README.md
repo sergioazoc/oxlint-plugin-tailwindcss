@@ -14,6 +14,7 @@ Read the story behind this plugin: [oxlint-tailwindcss: The Linting Plugin Tailw
 - **Lightweight** — Only 2 runtime dependencies: `@tailwindcss/node` and `tailwindcss`.
 - **22 rules** — Correctness, style, complexity, and restriction rules with autofixes where possible.
 - **Variable detection** — Lints variables named `className`, `classes`, `style` automatically.
+- **Customizable** — Extend class detection with custom attributes, callees, tags, and variable patterns.
 - **Component class support** — Recognizes `@layer components { .btn {} }` in your CSS.
 
 ## Installation
@@ -109,6 +110,36 @@ Resolution order: rule option > `settings.tailwindcss.entryPoint` > auto-detect.
 
 If no entry point is found (neither configured nor auto-detected), rules that require the design system (`no-unknown-classes`, `no-conflicting-classes`, `no-deprecated-classes`, `enforce-canonical`, `enforce-sort-order`, `no-unnecessary-arbitrary-value`, `consistent-variant-order`) are silently disabled. All other rules work without it.
 
+## Custom class detection
+
+By default the plugin detects Tailwind classes in `className`/`class` attributes, 14 utility functions (`cn`, `clsx`, `cva`, `tv`, `classed`, etc.), `tw` tagged templates, and variables named `className`/`classes`/`style`.
+
+You can extend these defaults via `settings.tailwindcss`. All values are **additive** — your custom entries are appended to the built-in defaults:
+
+```jsonc
+{
+  "jsPlugins": ["oxlint-tailwindcss"],
+  "settings": {
+    "tailwindcss": {
+      // Additional JSX attribute names to scan
+      "attributes": ["xyzClassName", "classNames", "overlayClassName"],
+      // Additional function names to scan
+      "callees": ["myHelper"],
+      // Additional tagged template tags to scan
+      "tags": ["css"],
+      // Additional regex patterns for variable names (as strings)
+      "variablePatterns": ["^tw"],
+    },
+  },
+  "rules": {
+    "tailwindcss/no-unknown-classes": "error",
+    // ...
+  },
+}
+```
+
+This applies to all 22 rules at once. For example, adding `"classNames"` to `attributes` makes every rule lint `<Input classNames={{ root: "..." }} />`.
+
 ## Supported patterns
 
 The plugin extracts Tailwind classes from:
@@ -152,6 +183,16 @@ tv({
     { color: "primary", class: "border-blue-500" },
   ],
 })
+
+// classed() (tw-classed) — skips element type, extracts classes and cva-like config
+classed("button", "flex items-center", {
+  variants: {
+    color: { primary: "bg-blue-500", secondary: "bg-gray-500" },
+  },
+})
+
+// Object-valued JSX attributes (e.g. Mantine classNames prop)
+<Input classNames={{ root: "flex items-center", input: "border-none" }} />
 
 // Tagged templates
 const styles = tw`flex items-center hover:bg-blue-500`
