@@ -271,6 +271,76 @@ describe('custom extractor settings', () => {
       },
     ],
   })
+
+  // Exclude defaults
+  settingsTester.run('no-duplicate-classes (exclude variablePatterns)', noDuplicateClasses, {
+    valid: [
+      // With exclude, "style" variable is no longer detected
+      {
+        code: 'const style = "flex flex"',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { exclude: { variablePatterns: ['^styles?$'] } } },
+      },
+      // "styles" also excluded
+      {
+        code: 'const styles = "flex flex"',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { exclude: { variablePatterns: ['^styles?$'] } } },
+      },
+    ],
+    invalid: [
+      // className still detected (not excluded)
+      {
+        code: 'const className = "flex flex"',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { exclude: { variablePatterns: ['^styles?$'] } } },
+        errors: [{ messageId: 'duplicate' }],
+        output: 'const className = "flex"',
+      },
+    ],
+  })
+
+  settingsTester.run('no-duplicate-classes (exclude callees)', noDuplicateClasses, {
+    valid: [
+      // With exclude, objstr is no longer detected
+      {
+        code: 'objstr("flex flex")',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { exclude: { callees: ['objstr'] } } },
+      },
+    ],
+    invalid: [
+      // cn still detected (not excluded)
+      {
+        code: 'cn("flex flex")',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { exclude: { callees: ['objstr'] } } },
+        errors: [{ messageId: 'duplicate' }],
+        output: 'cn("flex")',
+      },
+    ],
+  })
+
+  settingsTester.run('no-duplicate-classes (exclude attributes)', noDuplicateClasses, {
+    valid: [
+      // With exclude, "class" attribute is no longer detected
+      {
+        code: '<div class="flex flex" />',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { exclude: { attributes: ['class'] } } },
+      },
+    ],
+    invalid: [
+      // className still detected (not excluded)
+      {
+        code: '<div className="flex flex" />',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { exclude: { attributes: ['class'] } } },
+        errors: [{ messageId: 'duplicate' }],
+        output: '<div className="flex" />',
+      },
+    ],
+  })
 })
 
 // --- tw-classed support ---

@@ -1,12 +1,12 @@
 # oxlint-tailwindcss
 
-22 Tailwind CSS linting rules for [oxlint](https://oxc.rs/docs/guide/usage/linter). Built for Tailwind CSS v4 with zero-config auto-detection, typo suggestions, and autofixes.
+22 Tailwind CSS linting rules for [oxlint](https://oxc.rs/docs/guide/usage/linter). Built for Tailwind CSS v4 with auto-detection, typo suggestions, and autofixes.
 
 Read the story behind this plugin: [oxlint-tailwindcss: The Linting Plugin Tailwind v4 Needed](https://sergioazocar.com/en/blog/oxlint-tailwindcss-the-linting-plugin-tailwind-v4-needed)
 
 ## Highlights
 
-- **Zero config** — Auto-detects your Tailwind CSS entry point. Works out of the box.
+- **Works out of the box** — Auto-detects your Tailwind CSS entry point. Fully configurable when needed.
 - **Fast** — Native oxlint plugin with a shared design system cache. Loads once, used by all rules.
 - **Tailwind CSS v4** — Designed for v4 from day one.
 - **Typo suggestions** — `itms-center` → "Did you mean `items-center`?"
@@ -75,7 +75,7 @@ assets/{name}.css    assets/css/{name}.css  resources/css/{name}.css
 
 Where `{name}` is one of: `app`, `globals`, `global`, `style`, `styles`, `index`, `main`, `tailwind`, `tailwindcss`.
 
-The search is monorepo-aware — it stops at `package.json` boundaries so each package resolves its own Tailwind config.
+The search is monorepo-aware — it stops at `package.json` boundaries so each package resolves its own Tailwind config. If the signal isn't found directly in the CSS file, the auto-detector follows `@import` statements one level deep — supporting both relative paths and package imports (e.g. `@import '@company/theme/tailwind.config.css'`).
 
 If auto-detection doesn't find your CSS file, set `entryPoint` once in `settings`:
 
@@ -139,6 +139,25 @@ You can extend these defaults via `settings.tailwindcss`. All values are **addit
 ```
 
 This applies to all 22 rules at once. For example, adding `"classNames"` to `attributes` makes every rule lint `<Input classNames={{ root: "..." }} />`.
+
+To **remove** specific items from the built-in defaults, use `exclude`:
+
+```jsonc
+{
+  "settings": {
+    "tailwindcss": {
+      "exclude": {
+        // Stop scanning variables named "style" / "styles"
+        "variablePatterns": ["^styles?$"],
+        // Stop scanning a specific callee
+        "callees": ["objstr"],
+      },
+    },
+  },
+}
+```
+
+For `variablePatterns`, exclusions match against the regex source (e.g. `"^styles?$"` removes the default `/^styles?$/` pattern).
 
 ## Supported patterns
 

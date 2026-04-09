@@ -57,9 +57,14 @@ export const DEFAULT_EXTRACTOR_CONFIG: ExtractorConfig = {
 let _cachedConfig: ExtractorConfig | null = null
 let _settingsResolved = false
 
-function mergeUnique(defaults: string[], extras?: string[]): string[] {
-  if (!extras || extras.length === 0) return defaults
-  const set = new Set(defaults)
+function mergeUnique(defaults: string[], extras?: string[], exclusions?: string[]): string[] {
+  let base = defaults
+  if (exclusions && exclusions.length > 0) {
+    const excludeSet = new Set(exclusions)
+    base = base.filter((d) => !excludeSet.has(d))
+  }
+  if (!extras || extras.length === 0) return base
+  const set = new Set(base)
   for (const e of extras) set.add(e)
   return [...set]
 }
@@ -91,12 +96,27 @@ export function getExtractorConfig(context: {
     return _cachedConfig
   }
 
+  const exclude = tw.exclude
+
+  // Variable patterns: exclude by regex source, then add new patterns
+  const excludedPatternSources = new Set(exclude?.variablePatterns ?? [])
+  const filteredPatterns =
+    excludedPatternSources.size > 0
+      ? DEFAULT_EXTRACTOR_CONFIG.variablePatterns.filter(
+          (re) => !excludedPatternSources.has(re.source),
+        )
+      : DEFAULT_EXTRACTOR_CONFIG.variablePatterns
+
   _cachedConfig = {
-    attributes: mergeUnique(DEFAULT_EXTRACTOR_CONFIG.attributes, tw.attributes),
-    callees: mergeUnique(DEFAULT_EXTRACTOR_CONFIG.callees, tw.callees),
-    tags: mergeUnique(DEFAULT_EXTRACTOR_CONFIG.tags, tw.tags),
+    attributes: mergeUnique(
+      DEFAULT_EXTRACTOR_CONFIG.attributes,
+      tw.attributes,
+      exclude?.attributes,
+    ),
+    callees: mergeUnique(DEFAULT_EXTRACTOR_CONFIG.callees, tw.callees, exclude?.callees),
+    tags: mergeUnique(DEFAULT_EXTRACTOR_CONFIG.tags, tw.tags, exclude?.tags),
     variablePatterns: [
-      ...DEFAULT_EXTRACTOR_CONFIG.variablePatterns,
+      ...filteredPatterns,
       ...(tw.variablePatterns ?? []).map((p) => new RegExp(p)),
     ],
   }

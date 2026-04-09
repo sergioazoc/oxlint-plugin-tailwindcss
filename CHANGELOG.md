@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 (2026-04-09)
+
+- **Exclude defaults via `settings.tailwindcss.exclude`** ([#5](https://github.com/sergioazoc/oxlint-tailwindcss/issues/5)) — Remove specific items from the built-in defaults. For example, `exclude: { variablePatterns: ["^styles?$"] }` stops the plugin from scanning variables named `style`/`styles`. Supports `attributes`, `callees`, `tags`, and `variablePatterns`.
+- **Auto-detect follows indirect `@import`** ([#4](https://github.com/sergioazoc/oxlint-tailwindcss/issues/4)) — When a candidate CSS file doesn't contain a direct Tailwind signal but has `@import` statements, the auto-detector now follows those imports one level deep to find the signal. Supports relative paths and package imports (e.g. `@import '@company/theme/tailwind.config.css'`). No recursion — maximum one level.
+- 601 tests (up from 591).
+
 ## 0.2.0 (2026-04-09)
 
 - **Custom class detection via settings** ([#1](https://github.com/sergioazoc/oxlint-tailwindcss/issues/1)) — New `settings.tailwindcss` options to extend class detection: `attributes` (additional JSX attribute names), `callees` (additional function names), `tags` (additional tagged template tags), and `variablePatterns` (additional regex patterns for variable names). All values are additive to the built-in defaults. Applies to all 22 rules at once.

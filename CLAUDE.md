@@ -14,6 +14,10 @@ pnpm typecheck      # Type check with tsgo (TypeScript native compiler)
 
 Run a single test file: `pnpm vitest run tests/rules/no-duplicate-classes.test.ts`
 
+## Versioning
+
+Always use **semver** for version bumps: patch (x.y.Z) for bugfixes only, minor (x.Y.0) for new features or non-breaking additions, major (X.0.0) for breaking changes.
+
 ## Architecture
 
 oxlint plugin with 22 Tailwind CSS v4 linting rules. Uses `@oxlint/plugins`' `createOnce` API (runs once per lint session; returned visitors run on every matching AST node).
@@ -42,6 +46,7 @@ DS-dependent rules: `no-unknown-classes`, `no-conflicting-classes`, `no-deprecat
 - `callees: string[]` — additional function names (e.g. `["myHelper"]`)
 - `tags: string[]` — additional tagged template tags
 - `variablePatterns: string[]` — additional regex patterns for variable names (as strings, compiled to RegExp)
+- `exclude: { attributes?, callees?, tags?, variablePatterns? }` — remove specific items from defaults. For `variablePatterns`, exclusions match against `RegExp.source` (e.g. `"^styles?$"` removes `/^styles?$/`).
 
 Config is resolved lazily by `getExtractorConfig(context)` on first visitor call (settings unavailable in `createOnce`). Cached in module-level variable; `resetExtractorConfig()` for test isolation.
 
@@ -56,7 +61,7 @@ AST visitors: `JSXAttribute`, `CallExpression`, `TaggedTemplateExpression`, `Var
 
 - **Lazy DS loading**: `context.settings` and `context.filename` throw in `createOnce()`. DS-dependent rules use `createLazyLoader(context)` which defers loading to the first visitor call where full context is available. Auto-detect uses `context.filename` to walk up from the linted file.
 - **Options timing**: ALL options must be read lazily inside `check()` via `safeOptions()` — they're null in `createOnce()`.
-- **Entry point resolution**: rule option `entryPoint` > `settings.tailwindcss.entryPoint` > auto-detect (from linted file path).
+- **Entry point resolution**: rule option `entryPoint` > `settings.tailwindcss.entryPoint` > auto-detect (from linted file path). Auto-detect follows `@import` statements one level deep if the candidate file doesn't contain a direct Tailwind signal (`resolveImport` + `hasTailwindSignalInImports` in `auto-detect.ts`).
 - **Graceful degradation**: If the design system can't load, DS-dependent rules silently skip (return from `check()`). Never crash.
 - **`!` (important) modifier**: Tailwind supports prefix (`!flex`) and suffix (`flex!`). ALL rules that do class lookups or transformations MUST strip `!` before lookups and re-add it in the same position. Cache methods (`getOrder`, `canonicalize`, `getCssProperties`, `getNamedEquivalent`) handle `!` internally via `stripImportant()`. Rules doing direct string comparisons (e.g., against `DEPRECATED_MAP`) must strip manually.
 - **Disk cache**: `sync-loader.ts` caches precomputed DS JSON in `os.tmpdir()/oxlint-tailwindcss/` keyed by `md5(version:path:mtime)`. Invalidates automatically when CSS changes or cache version bumps.

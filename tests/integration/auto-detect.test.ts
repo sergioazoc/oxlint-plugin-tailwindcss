@@ -105,4 +105,36 @@ describe('Auto-detect entry point', () => {
     const result = autoDetectEntryPoint(join(TMP, 'src/components/Button.tsx'))
     expect(result).toBe(join(TMP, candidatePath))
   })
+
+  // --- Indirect @import resolution ---
+
+  it('finds entry point with indirect @import (relative)', () => {
+    createFile('package.json', '{}')
+    createFile('src/globals.css', '@import "./tailwind-base.css";')
+    createFile('src/tailwind-base.css', '@import "tailwindcss";')
+    createFile('src/app.tsx', '')
+
+    const result = autoDetectEntryPoint(join(TMP, 'src/app.tsx'))
+    expect(result).toBe(join(TMP, 'src/globals.css'))
+  })
+
+  it('finds entry point with indirect @import (package)', () => {
+    createFile('package.json', '{}')
+    createFile('src/globals.css', "@import '@company/theme/tailwind.config.css';")
+    createFile('node_modules/@company/theme/tailwind.config.css', '@import "tailwindcss";')
+    createFile('src/app.tsx', '')
+
+    const result = autoDetectEntryPoint(join(TMP, 'src/app.tsx'))
+    expect(result).toBe(join(TMP, 'src/globals.css'))
+  })
+
+  it('returns null when indirect imports also lack tailwind signal', () => {
+    createFile('package.json', '{}')
+    createFile('src/globals.css', '@import "./reset.css";')
+    createFile('src/reset.css', 'body { margin: 0; }')
+    createFile('src/app.tsx', '')
+
+    const result = autoDetectEntryPoint(join(TMP, 'src/app.tsx'))
+    expect(result).toBeNull()
+  })
 })

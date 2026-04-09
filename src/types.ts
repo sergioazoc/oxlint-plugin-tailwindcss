@@ -1,3 +1,14 @@
+export interface ExtractorExclusions {
+  /** Default attribute names to exclude */
+  attributes?: string[]
+  /** Default callee names to exclude */
+  callees?: string[]
+  /** Default tag names to exclude */
+  tags?: string[]
+  /** Default variable pattern regex sources to exclude (matched against RegExp.source) */
+  variablePatterns?: string[]
+}
+
 export interface PluginSettings {
   entryPoint?: string
   debug?: boolean
@@ -9,6 +20,8 @@ export interface PluginSettings {
   tags?: string[]
   /** Additional regex patterns (as strings) for variable names to scan (added to defaults) */
   variablePatterns?: string[]
+  /** Remove specific items from the built-in defaults */
+  exclude?: ExtractorExclusions
 }
 
 export interface RuleOptions {
