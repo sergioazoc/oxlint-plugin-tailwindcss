@@ -7,7 +7,8 @@ Read the story behind this plugin: [oxlint-tailwindcss: The Linting Plugin Tailw
 ## Highlights
 
 - **Works out of the box** — Auto-detects your Tailwind CSS entry point. Fully configurable when needed.
-- **Fast** — Native oxlint plugin with a shared design system cache. Loads once, used by all rules.
+- **Monorepo-ready** — Each package resolves its own design system automatically. Run `oxlint` once from the workspace root.
+- **Fast** — Native oxlint plugin with per-entry-point caching and content-based disk cache for monorepo deduplication.
 - **Tailwind CSS v4** — Designed for v4 from day one.
 - **Typo suggestions** — `itms-center` → "Did you mean `items-center`?"
 - **Conflict detection** — Shows exactly which CSS properties conflict and which class wins.
@@ -94,7 +95,7 @@ If auto-detection doesn't find your CSS file, set `entryPoint` once in `settings
 }
 ```
 
-The design system is loaded once and shared across all rules.
+The design system is loaded once per entry point and shared across all rules. In monorepos, each package resolves its own entry point automatically via `package.json` boundaries.
 
 You can also override per rule if needed:
 
@@ -107,6 +108,18 @@ You can also override per rule if needed:
 ```
 
 Resolution order: rule option > `settings.tailwindcss.entryPoint` > auto-detect.
+
+For slow environments (large monorepos, CI), you can increase the design system loading timeout:
+
+```jsonc
+{
+  "settings": {
+    "tailwindcss": {
+      "timeout": 60000, // milliseconds (default: 30000)
+    },
+  },
+}
+```
 
 If no entry point is found (neither configured nor auto-detected), rules that require the design system (`no-unknown-classes`, `no-conflicting-classes`, `no-deprecated-classes`, `enforce-canonical`, `enforce-sort-order`, `no-unnecessary-arbitrary-value`, `consistent-variant-order`) are silently disabled. All other rules work without it.
 

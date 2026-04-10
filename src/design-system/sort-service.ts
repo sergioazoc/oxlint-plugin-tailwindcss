@@ -95,10 +95,24 @@ let lengthView: DataView | null = null
 let dataArea: Uint8Array | null = null
 let initialized = false
 let available = true
+let currentCssPath: string | null = null
 
 function ensureService(cssPath: string): boolean {
-  if (initialized) return available
+  // Same path → reuse existing worker
+  if (initialized && currentCssPath === cssPath) return available
+
+  // Different path → restart worker for the new DS
+  if (initialized) {
+    cleanup()
+    initialized = false
+    available = true
+    controlArray = null
+    lengthView = null
+    dataArea = null
+  }
+
   initialized = true
+  currentCssPath = cssPath
 
   try {
     // Resolve @tailwindcss/node from the parent thread where the plugin's
@@ -199,6 +213,7 @@ export function resetSortService(): void {
   cleanup()
   initialized = false
   available = true
+  currentCssPath = null
   controlArray = null
   lengthView = null
   dataArea = null

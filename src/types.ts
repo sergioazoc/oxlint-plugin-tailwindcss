@@ -12,6 +12,8 @@ export interface ExtractorExclusions {
 export interface PluginSettings {
   entryPoint?: string
   debug?: boolean
+  /** Timeout in milliseconds for design system loading (default: 30000) */
+  timeout?: number
   /** Additional JSX attribute names to scan for Tailwind classes (added to defaults) */
   attributes?: string[]
   /** Additional function names to scan for Tailwind classes (added to defaults) */

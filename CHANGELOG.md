@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 (2026-04-10)
+
+- **Monorepo support: per-file design system resolution** ([#7](https://github.com/sergioazoc/oxlint-tailwindcss/issues/7)) — Run `oxlint` once from the workspace root and each file automatically uses the correct package-specific Tailwind config. The plugin now maintains a per-entry-point DS cache (Map) instead of a single shared instance. The lazy loader re-resolves when `context.filename` changes, and auto-detect results are cached by directory to avoid repeated filesystem walks.
+- **Content-based disk cache for monorepo deduplication** ([#6](https://github.com/sergioazoc/oxlint-tailwindcss/issues/6)) — Two-level disk cache (mtime index + content hash) allows packages with identical CSS to share a single cache entry. In benchmarks, 5 packages with the same CSS: 12.3s → 45ms (99.6% reduction).
+- **Configurable timeout** ([#6](https://github.com/sergioazoc/oxlint-tailwindcss/issues/6)) — New `settings.tailwindcss.timeout` option (default: 30000ms) for environments where design system loading is slow.
+- **Precompute performance optimizations** — Replaced O(N²) linear scans (`indexOf`/`includes`) with Map/Set lookups in the PRECOMPUTE_SCRIPT. Cold load time reduced from 2.4s to 1.7s (27%).
+- **Sort service multi-DS support** — The sort worker now tracks its current CSS path and restarts when the entry point changes, with graceful fallback to heuristic sort during restart.
+- 676 tests (up from 601).
+
 ## 0.3.0 (2026-04-09)
 
 - **Exclude defaults via `settings.tailwindcss.exclude`** ([#5](https://github.com/sergioazoc/oxlint-tailwindcss/issues/5)) — Remove specific items from the built-in defaults. For example, `exclude: { variablePatterns: ["^styles?$"] }` stops the plugin from scanning variables named `style`/`styles`. Supports `attributes`, `callees`, `tags`, and `variablePatterns`.

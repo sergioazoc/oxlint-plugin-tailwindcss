@@ -118,6 +118,10 @@ async function main() {
   const entries = ds.getClassList();
   const classNames = entries.map(e => e[0]);
 
+  // Index for O(1) lookups by class name (avoids O(N) indexOf/includes in later phases)
+  const classNameIndex = new Map();
+  for (let i = 0; i < classNames.length; i++) classNameIndex.set(classNames[i], i);
+
   // Validity: which classes produce CSS
   const cssResults = ds.candidatesToCss(classNames);
   const validClasses = classNames.filter((_, i) => cssResults[i] != null);
@@ -179,7 +183,7 @@ async function main() {
   // Sort order — include extra candidates so bare utilities (rounded, blur, etc.) get order
   const allForOrder = [...classNames];
   for (const cls of validClasses) {
-    if (!classNames.includes(cls)) allForOrder.push(cls);
+    if (!classNameIndex.has(cls)) allForOrder.push(cls);
   }
   const order = {};
   const orderResults = ds.getClassOrder(allForOrder);
@@ -309,7 +313,8 @@ async function main() {
   const candidates = [];
   for (const cls of validClasses) {
     if (cls.includes('[') || cls.includes('/')) continue;
-    const idx = classNames.indexOf(cls);
+    const idx = classNameIndex.get(cls);
+    if (idx === undefined) continue;
     const cssText = cssResults[idx];
     if (!cssText) continue;
     const pvMatch = cssText.match(/^\\s+([\\w-]+)\\s*:\\s*(.+?)\\s*;?\\s*$/m);
@@ -345,44 +350,102 @@ main().catch(e => { process.stderr.write(e.message); process.exit(1); });
 const CACHE_DIR = join(tmpdir(), 'oxlint-tailwindcss')
 
 // Bump this when precompute logic changes to invalidate disk cache
-const CACHE_VERSION = 10
+const CACHE_VERSION = 11
 
-function getCachePath(cssPath: string, mtime: number): string {
+/**
+ * Two-level disk cache for monorepo deduplication:
+ *
+ * Level 1 — mtime index (.idx): maps path+mtime → content hash (fast-path, avoids reading CSS)
+ * Level 2 — content cache (.json): maps content hash → precomputed data (shared across packages)
+ *
+ * In monorepos, multiple packages with identical CSS (e.g. `@import 'tailwindcss'`) at different
+ * paths share a single content cache entry, avoiding redundant child process spawns.
+ */
+
+function getMtimeIndexPath(cssPath: string, mtime: number): string {
   const hash = createHash('md5').update(`v${CACHE_VERSION}:${cssPath}:${mtime}`).digest('hex')
-  return join(CACHE_DIR, `${hash}.json`)
+  return join(CACHE_DIR, `${hash}.idx`)
 }
 
-export function loadDesignSystemSync(cssPath: string): PrecomputedData | null {
+function computeContentHash(content: string): string {
+  return createHash('md5').update(`v${CACHE_VERSION}:${content}`).digest('hex')
+}
+
+function getContentCachePath(contentHash: string): string {
+  return join(CACHE_DIR, `${contentHash}.json`)
+}
+
+function tryReadCache(cachePath: string): PrecomputedData | null {
+  try {
+    return JSON.parse(readFileSync(cachePath, 'utf-8')) as PrecomputedData
+  } catch {
+    return null
+  }
+}
+
+function writeCacheFiles(
+  contentCachePath: string,
+  mtimeIndexPath: string,
+  contentHash: string,
+  data: string,
+): void {
+  try {
+    mkdirSync(CACHE_DIR, { recursive: true })
+    writeFileSync(contentCachePath, data)
+    writeFileSync(mtimeIndexPath, contentHash)
+  } catch {
+    // Non-fatal — cache is optional
+  }
+}
+
+export function loadDesignSystemSync(cssPath: string, timeout?: number): PrecomputedData | null {
   const resolvedPath = resolve(cssPath)
 
   try {
     const mtime = statSync(resolvedPath).mtimeMs
-    const cachePath = getCachePath(resolvedPath, mtime)
+    const mtimeIndexPath = getMtimeIndexPath(resolvedPath, mtime)
 
-    // Try disk cache first
-    if (existsSync(cachePath)) {
+    // Fast path: mtime index exists → read content hash → look up content cache
+    if (existsSync(mtimeIndexPath)) {
       try {
-        return JSON.parse(readFileSync(cachePath, 'utf-8')) as PrecomputedData
+        const contentHash = readFileSync(mtimeIndexPath, 'utf-8').trim()
+        const contentCachePath = getContentCachePath(contentHash)
+        const cached = tryReadCache(contentCachePath)
+        if (cached) return cached
       } catch {
-        // Cache corrupted, fall through to full load
+        // Index corrupted, fall through
       }
     }
 
+    // Slow path: read CSS content, compute content hash
+    const content = readFileSync(resolvedPath, 'utf-8')
+    const contentHash = computeContentHash(content)
+    const contentCachePath = getContentCachePath(contentHash)
+
+    // Check content cache — another package with identical CSS may have already computed this
+    const cached = tryReadCache(contentCachePath)
+    if (cached) {
+      // Content cache hit (monorepo deduplication) — just write the mtime index
+      try {
+        mkdirSync(CACHE_DIR, { recursive: true })
+        writeFileSync(mtimeIndexPath, contentHash)
+      } catch {
+        // Non-fatal
+      }
+      return cached
+    }
+
+    // Full computation: spawn child process
     const stdout = execFileSync(process.execPath, ['-e', PRECOMPUTE_SCRIPT], {
       encoding: 'utf-8',
-      timeout: 30_000,
+      timeout: timeout ?? 30_000,
       maxBuffer: 50 * 1024 * 1024,
       env: { ...process.env, TAILWIND_CSS_PATH: resolvedPath },
       cwd: dirname(resolvedPath),
     })
 
-    // Write to disk cache for other threads/future runs
-    try {
-      mkdirSync(CACHE_DIR, { recursive: true })
-      writeFileSync(cachePath, stdout)
-    } catch {
-      // Non-fatal — cache is optional
-    }
+    // Write both cache levels
+    writeCacheFiles(contentCachePath, mtimeIndexPath, contentHash, stdout)
 
     return JSON.parse(stdout) as PrecomputedData
   } catch (error) {

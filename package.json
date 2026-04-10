@@ -1,6 +1,6 @@
 {
   "name": "oxlint-tailwindcss",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Tailwind CSS linting rules for oxlint",
   "keywords": [
     "css",
@@ -44,8 +44,9 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "vitest run --exclude 'tests/benchmarks/**'",
+    "test:watch": "vitest --exclude 'tests/benchmarks/**'",
+    "bench": "vitest run tests/benchmarks --reporter=verbose",
     "lint": "oxlint",
     "format": "oxfmt --write .",
     "format:check": "oxfmt .",

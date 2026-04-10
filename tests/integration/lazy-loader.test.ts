@@ -139,6 +139,24 @@ describe('createLazyLoader — oxlint lifecycle simulation', () => {
   })
 })
 
+describe('timeout via settings', () => {
+  beforeEach(() => resetDesignSystem())
+
+  it('respects custom timeout from settings', () => {
+    const settings = { tailwindcss: { entryPoint: ENTRY_POINT, timeout: 60000 } }
+    const result = getLoadedDesignSystem(undefined, settings)
+    expect(result).not.toBeNull()
+    expect(result!.cache.isValid('flex')).toBe(true)
+  })
+
+  it('ignores invalid timeout values', () => {
+    const settings = { tailwindcss: { entryPoint: ENTRY_POINT, timeout: -1 } }
+    const result = getLoadedDesignSystem(undefined, settings)
+    // Falls back to default 30s timeout — still loads successfully
+    expect(result).not.toBeNull()
+  })
+})
+
 // NOTE: Monorepo auto-detect path resolution is thoroughly tested in
 // auto-detect.test.ts (88 tests). The lifecycle simulation test above
 // verifies createLazyLoader pipes filename to getLoadedDesignSystem.

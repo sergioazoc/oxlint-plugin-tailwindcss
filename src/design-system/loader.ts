@@ -2,19 +2,21 @@ import { DesignSystemCache } from './cache'
 import { loadDesignSystemSync } from './sync-loader'
 import { autoDetectEntryPoint } from './auto-detect'
 import { statSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 
 export interface LoadResult {
   cache: DesignSystemCache
   entryPoint: string
 }
 
-// Module-level SINGLETON — shared across ALL rules
-let singleton: {
-  cache: DesignSystemCache
-  path: string
-  mtime: number
-} | null = null
+// Per-entry-point DS cache — supports multiple design systems in monorepos
+const dsCache = new Map<string, { cache: DesignSystemCache; mtime: number }>()
+
+// Auto-detect result cache by directory — avoids repeated filesystem walks
+const autoDetectCache = new Map<string, string | null>()
+
+// Last successfully loaded path — fallback when auto-detect finds no CSS nearby
+let lastLoadedPath: string | null = null
 
 /**
  * Extracts `entryPoint` from `context.settings.tailwindcss`.
@@ -29,9 +31,38 @@ function entryPointFromSettings(settings?: Readonly<Record<string, unknown>>): s
 }
 
 /**
+ * Extracts `timeout` from `context.settings.tailwindcss`.
+ */
+function timeoutFromSettings(settings?: Readonly<Record<string, unknown>>): number | undefined {
+  const tw = settings?.tailwindcss
+  if (tw && typeof tw === 'object' && 'timeout' in tw) {
+    const t = (tw as Record<string, unknown>).timeout
+    if (typeof t === 'number' && t > 0) return t
+  }
+  return undefined
+}
+
+/**
+ * Cached auto-detect: caches by directory since all files in the same directory
+ * resolve to the same entry point. Avoids repeated filesystem walks.
+ */
+function cachedAutoDetect(filePath?: string): string | null {
+  if (!filePath) return autoDetectEntryPoint(filePath)
+  const dir = dirname(resolve(filePath))
+  const cached = autoDetectCache.get(dir)
+  if (cached !== undefined) return cached
+  const result = autoDetectEntryPoint(filePath)
+  autoDetectCache.set(dir, result)
+  return result
+}
+
+/**
  * Returns the design system cache, loading synchronously on first call.
  * Uses execFileSync internally to bridge the async Tailwind API.
- * All rules receive the SAME instance.
+ *
+ * Supports multiple design systems: each unique CSS entry point gets its own cache.
+ * In monorepos, files in different packages auto-detect to different entry points
+ * and each gets the correct DS.
  *
  * Resolution order: rule option `entryPoint` > `settings.tailwindcss.entryPoint` > auto-detect.
  */
@@ -41,25 +72,24 @@ export function getLoadedDesignSystem(
   filePath?: string,
 ): LoadResult | null {
   const cssPath =
-    entryPoint ??
-    entryPointFromSettings(settings) ??
-    singleton?.path ??
-    autoDetectEntryPoint(filePath)
+    entryPoint ?? entryPointFromSettings(settings) ?? cachedAutoDetect(filePath) ?? lastLoadedPath
   if (!cssPath) return null
 
   const resolvedPath = resolve(cssPath)
 
   try {
     const mtime = statSync(resolvedPath).mtimeMs
-    if (singleton !== null && singleton.path === resolvedPath && singleton.mtime === mtime) {
-      return { cache: singleton.cache, entryPoint: resolvedPath }
+    const cached = dsCache.get(resolvedPath)
+    if (cached && cached.mtime === mtime) {
+      return { cache: cached.cache, entryPoint: resolvedPath }
     }
 
-    const data = loadDesignSystemSync(resolvedPath)
+    const data = loadDesignSystemSync(resolvedPath, timeoutFromSettings(settings))
     if (!data) return null
 
     const cache = DesignSystemCache.fromPrecomputed(data)
-    singleton = { cache, path: resolvedPath, mtime }
+    dsCache.set(resolvedPath, { cache, mtime })
+    lastLoadedPath = resolvedPath
     return { cache, entryPoint: resolvedPath }
   } catch {
     return null
@@ -67,23 +97,26 @@ export function getLoadedDesignSystem(
 }
 
 /**
- * Creates a lazy DS loader that retries with more context as it becomes available.
+ * Creates a lazy DS loader that resolves the correct design system per file.
  *
  * In `createOnce`, `context.settings` and `context.filename` throw. When visitors
- * run, they become available. This function retries until it has the file path
- * (meaning we're in a visitor with full context), then gives up.
+ * run, they become available. The loader re-resolves when the filename changes,
+ * supporting monorepos where different files need different design systems.
+ *
+ * When a fixed entryPoint is provided (rule option or settings), it's used for all
+ * files and cached after first resolution.
  */
 export function createLazyLoader(context: {
   options?: readonly unknown[]
   settings?: Readonly<Record<string, unknown>>
   filename?: string
 }): () => LoadResult | null {
-  let result: LoadResult | null = null
   let lastFilePath: string | undefined
+  let lastResult: LoadResult | null = null
+  let fixedEntryResolved = false
+  let fixedResult: LoadResult | null = null
 
   return () => {
-    if (result) return result
-
     let entryPoint: string | undefined
     try {
       const opts = context.options?.[0] as { entryPoint?: string } | undefined
@@ -100,19 +133,29 @@ export function createLazyLoader(context: {
       filePath = context.filename
     } catch {}
 
-    // Skip retry if we already tried with the same file path
-    if (filePath && filePath === lastFilePath) return null
+    // Fixed entry point (rule option or settings) — same for all files
+    const fixedEntry = entryPoint ?? entryPointFromSettings(settings)
+    if (fixedEntry) {
+      if (fixedEntryResolved) return fixedResult
+      fixedEntryResolved = true
+      fixedResult = getLoadedDesignSystem(fixedEntry, settings, filePath)
+      return fixedResult
+    }
+
+    // Auto-detect mode: re-resolve when the file changes
+    if (filePath && filePath === lastFilePath) return lastResult
     if (filePath) lastFilePath = filePath
 
-    result = getLoadedDesignSystem(entryPoint, settings, filePath)
-
-    return result
+    lastResult = getLoadedDesignSystem(undefined, settings, filePath)
+    return lastResult
   }
 }
 
 /**
- * Resets the singleton (useful for tests).
+ * Resets all DS caches (useful for tests).
  */
 export function resetDesignSystem(): void {
-  singleton = null
+  dsCache.clear()
+  autoDetectCache.clear()
+  lastLoadedPath = null
 }
