@@ -120,6 +120,62 @@ describe('Multi-DS: getLoadedDesignSystem per package', () => {
   })
 })
 
+describe('Multi-DS: package without CSS should not inherit another package DS (#7)', () => {
+  beforeEach(() => resetDesignSystem())
+
+  it('returns null for package without CSS after loading another package', () => {
+    // Create a package without any CSS entry point
+    mkdirSync(join(TEMP_DIR, 'pkg-shared', 'src'), { recursive: true })
+    writeFileSync(join(TEMP_DIR, 'pkg-shared', 'package.json'), '{}')
+    writeFileSync(join(TEMP_DIR, 'pkg-shared', 'src', 'utils.ts'), '')
+
+    const webFile = join(TEMP_DIR, 'pkg-web', 'src', 'App.tsx')
+    const sharedFile = join(TEMP_DIR, 'pkg-shared', 'src', 'utils.ts')
+
+    // Load pkg-web DS first (sets lastLoadedPath internally)
+    const webDS = getLoadedDesignSystem(undefined, {}, webFile)
+    expect(webDS).not.toBeNull()
+
+    // pkg-shared has no CSS — should NOT inherit pkg-web's DS
+    const sharedDS = getLoadedDesignSystem(undefined, {}, sharedFile)
+    expect(sharedDS).toBeNull()
+  })
+
+  it('lazy loader returns null for package without CSS', () => {
+    mkdirSync(join(TEMP_DIR, 'pkg-shared', 'src'), { recursive: true })
+    writeFileSync(join(TEMP_DIR, 'pkg-shared', 'package.json'), '{}')
+    writeFileSync(join(TEMP_DIR, 'pkg-shared', 'src', 'utils.ts'), '')
+
+    const webFile = join(TEMP_DIR, 'pkg-web', 'src', 'App.tsx')
+    const sharedFile = join(TEMP_DIR, 'pkg-shared', 'src', 'utils.ts')
+
+    let currentFile = webFile
+    const context = {
+      get options() {
+        return [{}]
+      },
+      get settings() {
+        return {}
+      },
+      get filename() {
+        return currentFile
+      },
+    }
+
+    const getDS = createLazyLoader(context)
+
+    // Load web DS first
+    const webResult = getDS()
+    expect(webResult).not.toBeNull()
+    expect(webResult!.entryPoint).toContain('pkg-web')
+
+    // Switch to shared — should be null, not inherit web's DS
+    currentFile = sharedFile
+    const sharedResult = getDS()
+    expect(sharedResult).toBeNull()
+  })
+})
+
 describe('Multi-DS: createLazyLoader per-file resolution', () => {
   beforeEach(() => resetDesignSystem())
 

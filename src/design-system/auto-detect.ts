@@ -106,29 +106,11 @@ export function autoDetectEntryPoint(filePath?: string): string | null {
       }
     }
 
+    // If current directory has package.json, we've reached the package root — stop
+    if (existsSync(join(currentDir, 'package.json'))) break
+
     const parentDir = dirname(currentDir)
     if (parentDir === currentDir) break
-
-    // If we find a package.json in the parent, it's a package boundary
-    if (depth > 0 && existsSync(join(parentDir, 'package.json'))) {
-      // Last attempt in the package.json directory
-      for (const candidate of CANDIDATE_PATHS) {
-        const fullPath = join(parentDir, candidate)
-        if (!existsSync(fullPath)) continue
-        try {
-          const content = readFileSync(fullPath, 'utf-8')
-          if (TAILWIND_SIGNALS.some((signal) => content.includes(signal))) {
-            return fullPath
-          }
-          if (hasTailwindSignalInImports(content, dirname(fullPath), TAILWIND_SIGNALS)) {
-            return fullPath
-          }
-        } catch {
-          continue
-        }
-      }
-      break
-    }
 
     currentDir = parentDir
   }

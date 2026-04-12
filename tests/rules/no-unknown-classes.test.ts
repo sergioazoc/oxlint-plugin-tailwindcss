@@ -76,6 +76,37 @@ ruleTester.run('no-unknown-classes', noUnknownClasses, {
   ],
 })
 
+// --- tw-classed: template literal as first arg (#9) ---
+
+describe('tw-classed template literal', () => {
+  const classedTester = new RuleTester()
+
+  classedTester.run('no-unknown-classes (classed template literal)', noUnknownClasses, {
+    valid: [
+      // First arg as string literal — element type skipped
+      { code: 'classed("div", "truncate")', filename: 'test.tsx' },
+      // First arg as template literal — element type should also be skipped (#9)
+      { code: 'classed(`div`, "truncate")', filename: 'test.tsx' },
+      { code: 'classed(`button`, "flex items-center")', filename: 'test.tsx' },
+      // Component reference as first arg
+      { code: 'classed(Button, "flex")', filename: 'test.tsx' },
+    ],
+    invalid: [
+      // Unknown class in second arg should still be detected
+      {
+        code: 'classed(`div`, "fex")',
+        filename: 'test.tsx',
+        errors: [{ messageId: 'unknownWithSuggestion' }],
+      },
+      {
+        code: 'classed("div", "fex")',
+        filename: 'test.tsx',
+        errors: [{ messageId: 'unknownWithSuggestion' }],
+      },
+    ],
+  })
+})
+
 // Test with component classes
 describe('component classes', () => {
   beforeAll(() => {

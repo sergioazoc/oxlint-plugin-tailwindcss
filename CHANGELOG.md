@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1 (2026-04-12)
+
+- **Fix `no-conflicting-classes` false positive with `text-*` and `tracking-*`** ([#8](https://github.com/sergioazoc/oxlint-tailwindcss/issues/8)) — When a theme defines `--text-base--letter-spacing`, `text-base` generates `letter-spacing` in its CSS output. Using `tracking-tight` alongside it to override only letter-spacing was incorrectly reported as a conflict. Added `[text-*, tracking-*]` to the composition pairs (matching the existing `[text-*, leading-*]` pair for line-height).
+- **Fix `classed()` false positive with template literal first argument** ([#9](https://github.com/sergioazoc/oxlint-tailwindcss/issues/9)) — `classed(\`div\`, 'truncate')` incorrectly treated the template literal `\`div\`` as a class string instead of skipping it as the element type. The skip logic now handles `TemplateLiteral` AST nodes in addition to `Literal` and `Identifier`.
+- **Fix auto-detect crossing `package.json` boundaries in monorepos** ([#7](https://github.com/sergioazoc/oxlint-tailwindcss/issues/7)) — Packages without their own Tailwind CSS file could incorrectly inherit a design system from a parent or sibling package. The boundary check now correctly stops at the current package's `package.json` instead of searching the parent directory. Additionally, the `lastLoadedPath` fallback is now only set by explicit `entryPoint` calls, preventing cross-package contamination via auto-detect.
+- **Log loaded design system path** — When a design system is loaded for the first time, the plugin now logs `[oxlint-tailwindcss] Loaded design system from "<path>"` to stderr. Helps diagnose which CSS entry point is being used, especially in monorepos.
+- 686 tests (up from 676).
+
 ## 0.4.0 (2026-04-10)
 
 - **Monorepo support: per-file design system resolution** ([#7](https://github.com/sergioazoc/oxlint-tailwindcss/issues/7)) — Run `oxlint` once from the workspace root and each file automatically uses the correct package-specific Tailwind config. The plugin now maintains a per-entry-point DS cache (Map) instead of a single shared instance. The lazy loader re-resolves when `context.filename` changes, and auto-detect results are cached by directory to avoid repeated filesystem walks.

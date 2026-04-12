@@ -8,6 +8,7 @@ import { DesignSystemCache } from '../../src/design-system/cache'
 
 const ENTRY_POINT = resolve(__dirname, '../fixtures/default.css')
 const PROSE_ENTRY = resolve(__dirname, '../fixtures/with-typography.css')
+const LETTER_SPACING_ENTRY = resolve(__dirname, '../fixtures/with-letter-spacing.css')
 
 // --- Default design system tests ---
 
@@ -156,5 +157,26 @@ describe('descendant selector filtering', () => {
     const cache = DesignSystemCache.fromPrecomputed(data!)
     // not-prose is referenced via [class~="not-prose"] in typography CSS output
     expect(cache.isValid('not-prose')).toBe(true)
+  })
+})
+
+// --- text-* + tracking-* composition when theme defines letter-spacing (#8) ---
+
+describe('text + tracking composition with letter-spacing', () => {
+  beforeAll(() => {
+    resetDesignSystem()
+    getLoadedDesignSystem(LETTER_SPACING_ENTRY)
+  })
+
+  const trackingTester = new RuleTester()
+
+  trackingTester.run('no-conflicting-classes (text + tracking)', noConflictingClasses, {
+    valid: [
+      // text-* sets letter-spacing as default, tracking-* overrides it (#8)
+      { code: '<div className="text-base tracking-tight" />', filename: 'test.tsx' },
+      { code: '<div className="text-lg tracking-wide" />', filename: 'test.tsx' },
+      { code: '<div className="text-base tracking-normal" />', filename: 'test.tsx' },
+    ],
+    invalid: [],
   })
 })

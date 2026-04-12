@@ -76,7 +76,7 @@ assets/{name}.css    assets/css/{name}.css  resources/css/{name}.css
 
 Where `{name}` is one of: `app`, `globals`, `global`, `style`, `styles`, `index`, `main`, `tailwind`, `tailwindcss`.
 
-The search is monorepo-aware — it stops at `package.json` boundaries so each package resolves its own Tailwind config. If the signal isn't found directly in the CSS file, the auto-detector follows `@import` statements one level deep — supporting both relative paths and package imports (e.g. `@import '@company/theme/tailwind.config.css'`).
+The search is monorepo-aware — it stops at `package.json` boundaries so each package resolves its own Tailwind config. Packages without a Tailwind CSS file are silently skipped (DS-dependent rules produce no diagnostics). If the signal isn't found directly in the CSS file, the auto-detector follows `@import` statements one level deep — supporting both relative paths and package imports (e.g. `@import '@company/theme/tailwind.config.css'`).
 
 If auto-detection doesn't find your CSS file, set `entryPoint` once in `settings`:
 

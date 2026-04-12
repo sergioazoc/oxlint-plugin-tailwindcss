@@ -1,0 +1,6 @@
+@import 'tailwindcss';
+
+@theme {
+  --text-base--letter-spacing: 0;
+  --text-lg--letter-spacing: -0.01em;
+}

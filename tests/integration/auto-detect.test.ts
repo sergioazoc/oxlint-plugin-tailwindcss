@@ -137,4 +137,50 @@ describe('Auto-detect entry point', () => {
     const result = autoDetectEntryPoint(join(TMP, 'src/app.tsx'))
     expect(result).toBeNull()
   })
+
+  // --- Package without CSS should not cross boundary (#7) ---
+
+  it('returns null for package without CSS in monorepo', () => {
+    // Root has CSS
+    createFile('package.json', '{}')
+    createFile('src/globals.css', "@import 'tailwindcss';")
+
+    // Package without any CSS
+    createFile('packages/shared/package.json', '{}')
+    createFile('packages/shared/src/utils.ts', '')
+
+    // Should NOT find root CSS — package.json boundary must stop the search
+    const result = autoDetectEntryPoint(join(TMP, 'packages/shared/src/utils.ts'))
+    expect(result).toBeNull()
+  })
+
+  it('returns null for package without CSS even when sibling has CSS', () => {
+    createFile('package.json', '{}')
+
+    // Sibling package WITH CSS
+    createFile('packages/web/package.json', '{}')
+    createFile('packages/web/src/globals.css', "@import 'tailwindcss';")
+
+    // Package WITHOUT CSS
+    createFile('packages/shared/package.json', '{}')
+    createFile('packages/shared/src/utils.ts', '')
+
+    const result = autoDetectEntryPoint(join(TMP, 'packages/shared/src/utils.ts'))
+    expect(result).toBeNull()
+  })
+
+  it('does not search parent directory when package.json boundary is reached', () => {
+    // Root with CSS at packages/ level (e.g. monorepo tools)
+    createFile('package.json', '{}')
+    createFile('packages/package.json', '{}')
+    createFile('packages/src/globals.css', "@import 'tailwindcss';")
+
+    // Nested package without CSS
+    createFile('packages/shared/package.json', '{}')
+    createFile('packages/shared/src/utils.ts', '')
+
+    // Should NOT find packages/src/globals.css
+    const result = autoDetectEntryPoint(join(TMP, 'packages/shared/src/utils.ts'))
+    expect(result).toBeNull()
+  })
 })

@@ -15,7 +15,8 @@ const dsCache = new Map<string, { cache: DesignSystemCache; mtime: number }>()
 // Auto-detect result cache by directory — avoids repeated filesystem walks
 const autoDetectCache = new Map<string, string | null>()
 
-// Last successfully loaded path — fallback when auto-detect finds no CSS nearby
+// Fallback path — only set by explicit entryPoint calls (tests, rule options),
+// never by auto-detect. Prevents cross-package contamination in monorepos.
 let lastLoadedPath: string | null = null
 
 /**
@@ -71,8 +72,10 @@ export function getLoadedDesignSystem(
   settings?: Readonly<Record<string, unknown>>,
   filePath?: string,
 ): LoadResult | null {
-  const cssPath =
-    entryPoint ?? entryPointFromSettings(settings) ?? cachedAutoDetect(filePath) ?? lastLoadedPath
+  // Explicit entry points (rule option or settings) update the fallback path.
+  // Auto-detect results do NOT — this prevents cross-package contamination in monorepos.
+  const explicitEntry = entryPoint ?? entryPointFromSettings(settings)
+  const cssPath = explicitEntry ?? cachedAutoDetect(filePath) ?? lastLoadedPath
   if (!cssPath) return null
 
   const resolvedPath = resolve(cssPath)
@@ -81,6 +84,7 @@ export function getLoadedDesignSystem(
     const mtime = statSync(resolvedPath).mtimeMs
     const cached = dsCache.get(resolvedPath)
     if (cached && cached.mtime === mtime) {
+      if (explicitEntry) lastLoadedPath = resolvedPath
       return { cache: cached.cache, entryPoint: resolvedPath }
     }
 
@@ -89,7 +93,8 @@ export function getLoadedDesignSystem(
 
     const cache = DesignSystemCache.fromPrecomputed(data)
     dsCache.set(resolvedPath, { cache, mtime })
-    lastLoadedPath = resolvedPath
+    console.error(`[oxlint-tailwindcss] Loaded design system from "${resolvedPath}"`)
+    if (explicitEntry) lastLoadedPath = resolvedPath
     return { cache, entryPoint: resolvedPath }
   } catch {
     return null

@@ -266,6 +266,11 @@ function extractFromClassedCall(node: ESTree.CallExpression): ClassLocation[] {
       skippedFirst = true
       continue
     }
+    // If first arg is a template literal (e.g. classed(`div`, ...)), also skip it
+    if (!skippedFirst && arg.type === 'TemplateLiteral') {
+      skippedFirst = true
+      continue
+    }
     skippedFirst = true
 
     if (arg.type === 'ObjectExpression') {

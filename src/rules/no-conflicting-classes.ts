@@ -71,6 +71,7 @@ export const noConflictingClasses = defineRule({
           // Pairs where one utility sets defaults and the other overrides a specific property
           const COMPOSITION_PAIRS: [RegExp, RegExp][] = [
             [/^text-/, /^leading-/], // text-sm sets line-height, leading-* overrides
+            [/^text-/, /^tracking-/], // text-* sets letter-spacing, tracking-* overrides
             [/^border(?:-[0-9]|$)/, /^border-(?:solid|dashed|dotted|double|hidden|none)$/], // border width + style
             [/^divide-/, /^border(?:-[trblxyse])?-/], // divide-* targets children
             [/^prose(?:-|$)/, /^max-w-/], // prose sets max-width, max-w-* overrides
