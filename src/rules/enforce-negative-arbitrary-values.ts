@@ -43,9 +43,11 @@ export const enforceNegativeArbitraryValues = defineRule({
     },
     fixable: 'code',
     schema: [],
+    hasSuggestions: true,
     messages: {
       moveNegative:
         '"{{className}}" has the negative outside brackets. Use "{{replacement}}" instead.',
+      suggestReplace: 'Replace "{{className}}" with "{{replacement}}".',
     },
   },
   createOnce(context) {
@@ -80,6 +82,15 @@ export const enforceNegativeArbitraryValues = defineRule({
               node: loc.node,
               messageId: 'moveNegative',
               data: { className: cls, replacement },
+              suggest: [
+                {
+                  messageId: 'suggestReplace',
+                  data: { className: cls, replacement },
+                  fix(fixer) {
+                    return fixer.replaceTextRange(loc.range, preserveSpaces(loc, fixedValue))
+                  },
+                },
+              ],
             })
           }
         }

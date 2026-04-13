@@ -77,6 +77,7 @@ export const noDarkWithoutLight = defineRule({
         additionalProperties: false,
       },
     ],
+    defaultOptions: [{ variants: DEFAULT_VARIANTS }],
     messages: {
       missingBase:
         '"{{className}}" uses the {{variant}} variant, but there is no base "{{prefix}}-*" class on this element.',

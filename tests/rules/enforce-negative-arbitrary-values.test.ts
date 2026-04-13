@@ -53,5 +53,24 @@ ruleTester.run('enforce-negative-arbitrary-values', enforceNegativeArbitraryValu
       errors: [{ messageId: 'moveNegative' }],
       output: '<div className="!top-[-5px]" />',
     },
+    // Multiple negative arbitraries in same string
+    {
+      code: '<div className="-top-[5px] -left-[10px] flex" />',
+      filename: 'test.tsx',
+      errors: [
+        { messageId: 'moveNegative' },
+        {
+          messageId: 'moveNegative',
+          suggestions: [
+            {
+              messageId: 'suggestReplace',
+              data: { className: '-left-[10px]', replacement: 'left-[-10px]' },
+              output: '<div className="top-[-5px] left-[-10px] flex" />',
+            },
+          ],
+        },
+      ],
+      output: '<div className="top-[-5px] left-[-10px] flex" />',
+    },
   ],
 })

@@ -1,9 +1,18 @@
 # Changelog
 
+## 0.5.0 (2026-04-13)
+
+- **Suggestions API for IDE quick-fixes** — 10 rules now provide `suggest` actions in IDEs. When multiple classes have errors in the same attribute, the first gets an autofix and the rest now offer an optional quick-fix (previously they had no action). `no-unknown-classes` also offers a quick-fix to replace typos with the Levenshtein suggestion. Affected rules: `enforce-logical`, `enforce-physical`, `enforce-negative-arbitrary-values`, `enforce-consistent-important-position`, `enforce-consistent-variable-syntax`, `no-deprecated-classes`, `consistent-variant-order`, `enforce-canonical`, `no-unnecessary-arbitrary-value`, `no-unknown-classes`.
+- **`entryPoint` as array for monorepos** — `settings.tailwindcss.entryPoint` now accepts `string[]` in addition to `string`. For each file, the plugin picks the entry point whose directory is closest in the filesystem tree. Example: `entryPoint: ["packages/web/src/globals.css", "packages/admin/src/styles.css"]`.
+- **Debug logging** — New `settings.tailwindcss.debug: true` option (or `DEBUG=oxlint-tailwindcss` env var) to see which design system is loaded for each file. Output: `[oxlint-tailwindcss] src/App.tsx → src/globals.css`. Disabled by default — the always-on log from v0.4.1 is removed.
+- **`defaultOptions` in rule meta** — 6 rules now declare their default options in the rule schema, making defaults visible to tooling. Rules: `max-class-count`, `enforce-consistent-important-position`, `enforce-consistent-variable-syntax`, `no-dark-without-light`, `no-unknown-classes`, `enforce-consistent-line-wrapping`.
+- **Dependencies updated** — @oxlint/plugins 1.60.0, oxlint 1.60.0, oxfmt 0.45.0.
+- 700 tests (up from 686).
+
 ## 0.4.1 (2026-04-12)
 
 - **Fix `no-conflicting-classes` false positive with `text-*` and `tracking-*`** ([#8](https://github.com/sergioazoc/oxlint-tailwindcss/issues/8)) — When a theme defines `--text-base--letter-spacing`, `text-base` generates `letter-spacing` in its CSS output. Using `tracking-tight` alongside it to override only letter-spacing was incorrectly reported as a conflict. Added `[text-*, tracking-*]` to the composition pairs (matching the existing `[text-*, leading-*]` pair for line-height).
-- **Fix `classed()` false positive with template literal first argument** ([#9](https://github.com/sergioazoc/oxlint-tailwindcss/issues/9)) — `classed(\`div\`, 'truncate')` incorrectly treated the template literal `\`div\`` as a class string instead of skipping it as the element type. The skip logic now handles `TemplateLiteral` AST nodes in addition to `Literal` and `Identifier`.
+- **Fix `classed()` false positive with template literal first argument** ([#9](https://github.com/sergioazoc/oxlint-tailwindcss/issues/9)) — `classed(\`div\`, 'truncate')`incorrectly treated the template literal`\`div\``as a class string instead of skipping it as the element type. The skip logic now handles`TemplateLiteral`AST nodes in addition to`Literal`and`Identifier`.
 - **Fix auto-detect crossing `package.json` boundaries in monorepos** ([#7](https://github.com/sergioazoc/oxlint-tailwindcss/issues/7)) — Packages without their own Tailwind CSS file could incorrectly inherit a design system from a parent or sibling package. The boundary check now correctly stops at the current package's `package.json` instead of searching the parent directory. Additionally, the `lastLoadedPath` fallback is now only set by explicit `entryPoint` calls, preventing cross-package contamination via auto-detect.
 - **Log loaded design system path** — When a design system is loaded for the first time, the plugin now logs `[oxlint-tailwindcss] Loaded design system from "<path>"` to stderr. Helps diagnose which CSS entry point is being used, especially in monorepos.
 - 686 tests (up from 676).

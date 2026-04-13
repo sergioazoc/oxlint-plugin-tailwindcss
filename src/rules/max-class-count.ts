@@ -24,6 +24,7 @@ export const maxClassCount = defineRule({
         additionalProperties: false,
       },
     ],
+    defaultOptions: [{ max: DEFAULT_MAX }],
     messages: {
       tooMany:
         'Too many Tailwind classes ({{count}}). Maximum allowed is {{max}}. Consider extracting into a component or utility.',

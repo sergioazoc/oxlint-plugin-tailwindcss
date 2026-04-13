@@ -39,8 +39,10 @@ export const noDeprecatedClasses = defineRule({
         additionalProperties: false,
       },
     ],
+    hasSuggestions: true,
     messages: {
       deprecated: '"{{className}}" is deprecated in Tailwind v4. Use "{{replacement}}" instead.',
+      suggestReplace: 'Replace "{{className}}" with "{{replacement}}".',
     },
   },
   createOnce(context) {
@@ -104,6 +106,15 @@ export const noDeprecatedClasses = defineRule({
               node: loc.node,
               messageId: 'deprecated',
               data: { className: cls, replacement },
+              suggest: [
+                {
+                  messageId: 'suggestReplace',
+                  data: { className: cls, replacement },
+                  fix(fixer) {
+                    return fixer.replaceTextRange(loc.range, preserveSpaces(loc, fixedValue))
+                  },
+                },
+              ],
             })
           }
         }

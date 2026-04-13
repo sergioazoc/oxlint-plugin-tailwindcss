@@ -19,8 +19,10 @@ export const enforceCanonical = defineRule({
         additionalProperties: false,
       },
     ],
+    hasSuggestions: true,
     messages: {
       nonCanonical: '"{{className}}" can be written as "{{canonical}}". Use the canonical form.',
+      suggestReplace: 'Replace "{{className}}" with "{{replacement}}".',
     },
   },
   createOnce(context) {
@@ -54,10 +56,20 @@ export const enforceCanonical = defineRule({
               },
             })
           } else {
+            const fixedValue = canonicals.join(' ')
             context.report({
               node: loc.node,
               messageId: 'nonCanonical',
               data: { className: cls, canonical },
+              suggest: [
+                {
+                  messageId: 'suggestReplace',
+                  data: { className: cls, replacement: canonical },
+                  fix(fixer) {
+                    return fixer.replaceTextRange(loc.range, preserveSpaces(loc, fixedValue))
+                  },
+                },
+              ],
             })
           }
         }

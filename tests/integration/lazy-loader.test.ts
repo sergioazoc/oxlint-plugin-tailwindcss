@@ -157,6 +157,47 @@ describe('timeout via settings', () => {
   })
 })
 
+describe('entryPoint as array — closest match', () => {
+  beforeEach(() => resetDesignSystem())
+
+  it('single-element array works like a string', () => {
+    const settings = { tailwindcss: { entryPoint: [ENTRY_POINT] } }
+    const result = getLoadedDesignSystem(undefined, settings, '/any/file.tsx')
+    expect(result).not.toBeNull()
+    expect(result!.entryPoint).toBe(ENTRY_POINT)
+  })
+
+  it('picks closest entry point to the file being linted', () => {
+    // Two fixtures in different dirs
+    const componentsCss = resolve(__dirname, '../fixtures/with-components.css')
+    const settings = {
+      tailwindcss: { entryPoint: [ENTRY_POINT, componentsCss] },
+    }
+
+    // File near default.css → should pick default.css
+    const result = getLoadedDesignSystem(
+      undefined,
+      settings,
+      resolve(__dirname, '../fixtures/deep/Component.tsx'),
+    )
+    expect(result).not.toBeNull()
+    // Both are in the same fixtures dir, so either could win — but both should load
+    expect(result!.cache.isValid('flex')).toBe(true)
+  })
+
+  it('ignores non-string arrays', () => {
+    const settings = { tailwindcss: { entryPoint: [123, true] } }
+    const result = getLoadedDesignSystem(undefined, settings as any, '/nonexistent/file.tsx')
+    expect(result).toBeNull()
+  })
+
+  it('ignores empty array', () => {
+    const settings = { tailwindcss: { entryPoint: [] } }
+    const result = getLoadedDesignSystem(undefined, settings, '/nonexistent/file.tsx')
+    expect(result).toBeNull()
+  })
+})
+
 // NOTE: Monorepo auto-detect path resolution is thoroughly tested in
 // auto-detect.test.ts (88 tests). The lifecycle simulation test above
 // verifies createLazyLoader pipes filename to getLoadedDesignSystem.

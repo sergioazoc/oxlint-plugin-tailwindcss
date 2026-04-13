@@ -1,5 +1,5 @@
 import { defineRule } from '@oxlint/plugins'
-import { createExtractorVisitors, type ClassLocation } from '../utils/extractors'
+import { createExtractorVisitors, preserveSpaces, type ClassLocation } from '../utils/extractors'
 import { splitClasses } from '../utils/class-splitter'
 import { findBestSuggestion } from '../utils/levenshtein'
 import { createLazyLoader } from '../design-system/loader'
@@ -32,10 +32,13 @@ export const noUnknownClasses = defineRule({
         additionalProperties: false,
       },
     ],
+    hasSuggestions: true,
+    defaultOptions: [{ allowlist: [], ignorePrefixes: [] }],
     messages: {
       unknown: '"{{className}}" is not a valid Tailwind class.',
       unknownWithSuggestion:
         '"{{className}}" is not a valid Tailwind class. Did you mean "{{suggestion}}"?',
+      suggestReplace: 'Replace "{{className}}" with "{{replacement}}".',
     },
   },
   createOnce(context) {
@@ -86,10 +89,20 @@ export const noUnknownClasses = defineRule({
           const suggestion = findBestSuggestion(stripped, cache.validClasses)
 
           if (suggestion) {
+            const fixedValue = classes.map((c) => (c === cls ? suggestion : c)).join(' ')
             context.report({
               node: loc.node,
               messageId: 'unknownWithSuggestion',
               data: { className: cls, suggestion },
+              suggest: [
+                {
+                  messageId: 'suggestReplace',
+                  data: { className: cls, replacement: suggestion },
+                  fix(fixer) {
+                    return fixer.replaceTextRange(loc.range, preserveSpaces(loc, fixedValue))
+                  },
+                },
+              ],
             })
           } else {
             context.report({

@@ -34,7 +34,19 @@ ruleTester.run('enforce-physical', enforcePhysical, {
     {
       code: '<div className="ms-4 me-4 flex" />',
       filename: 'test.tsx',
-      errors: [{ messageId: 'usePhysical' }, { messageId: 'usePhysical' }],
+      errors: [
+        { messageId: 'usePhysical' },
+        {
+          messageId: 'usePhysical',
+          suggestions: [
+            {
+              messageId: 'suggestReplace',
+              data: { className: 'me-4', replacement: 'mr-4' },
+              output: '<div className="ml-4 mr-4 flex" />',
+            },
+          ],
+        },
+      ],
       output: '<div className="ml-4 mr-4 flex" />',
     },
     // ! important modifier

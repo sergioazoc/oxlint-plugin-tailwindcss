@@ -67,7 +67,19 @@ ruleTester.run('no-deprecated-classes', noDeprecatedClasses, {
       code: '<div className="flex-grow flex-shrink" />',
       filename: 'test.tsx',
       options: [{ entryPoint: ENTRY_POINT }],
-      errors: [{ messageId: 'deprecated' }, { messageId: 'deprecated' }],
+      errors: [
+        { messageId: 'deprecated' },
+        {
+          messageId: 'deprecated',
+          suggestions: [
+            {
+              messageId: 'suggestReplace',
+              data: { className: 'flex-shrink', replacement: 'shrink' },
+              output: '<div className="grow shrink" />',
+            },
+          ],
+        },
+      ],
       output: '<div className="grow shrink" />',
     },
     // Deprecated class with important modifier

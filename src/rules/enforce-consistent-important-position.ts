@@ -25,9 +25,12 @@ export const enforceConsistentImportantPosition = defineRule({
         additionalProperties: false,
       },
     ],
+    hasSuggestions: true,
+    defaultOptions: [{ position: 'suffix' }],
     messages: {
       usePrefix: '"{{className}}" uses suffix important. Use "{{replacement}}" (prefix) instead.',
       useSuffix: '"{{className}}" uses prefix important. Use "{{replacement}}" (suffix) instead.',
+      suggestReplace: 'Replace "{{className}}" with "{{replacement}}".',
     },
   },
   createOnce(context) {
@@ -85,6 +88,15 @@ export const enforceConsistentImportantPosition = defineRule({
               node: loc.node,
               messageId: position === 'prefix' ? 'usePrefix' : 'useSuffix',
               data: { className: cls, replacement },
+              suggest: [
+                {
+                  messageId: 'suggestReplace',
+                  data: { className: cls, replacement },
+                  fix(fixer) {
+                    return fixer.replaceTextRange(loc.range, preserveSpaces(loc, fixedValue))
+                  },
+                },
+              ],
             })
           }
         }

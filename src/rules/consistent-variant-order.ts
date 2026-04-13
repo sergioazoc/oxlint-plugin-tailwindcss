@@ -116,8 +116,10 @@ export const consistentVariantOrder = defineRule({
         additionalProperties: false,
       },
     ],
+    hasSuggestions: true,
     messages: {
       wrongOrder: '"{{className}}" has variants in wrong order. Use "{{replacement}}" instead.',
+      suggestReplace: 'Replace "{{className}}" with "{{replacement}}".',
     },
   },
   createOnce(context) {
@@ -212,6 +214,15 @@ export const consistentVariantOrder = defineRule({
               node: loc.node,
               messageId: 'wrongOrder',
               data: { className: cls, replacement },
+              suggest: [
+                {
+                  messageId: 'suggestReplace',
+                  data: { className: cls, replacement },
+                  fix(fixer) {
+                    return fixer.replaceTextRange(loc.range, preserveSpaces(loc, fixedValue))
+                  },
+                },
+              ],
             })
           }
         }

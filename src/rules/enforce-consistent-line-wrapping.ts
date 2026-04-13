@@ -27,6 +27,7 @@ export const enforceConsistentLineWrapping = defineRule({
         additionalProperties: false,
       },
     ],
+    defaultOptions: [{ printWidth: DEFAULT_PRINT_WIDTH }],
     messages: {
       tooLong:
         'Class string is {{length}} characters long, exceeding the print width of {{printWidth}}. Consider splitting into multiple lines or extracting into a component.',

@@ -176,6 +176,61 @@ describe('Multi-DS: package without CSS should not inherit another package DS (#
   })
 })
 
+describe('Multi-DS: entryPoint array via settings', () => {
+  beforeEach(() => resetDesignSystem())
+
+  it('resolves closest entry point from array for each file', () => {
+    const webFile = join(TEMP_DIR, 'pkg-web', 'src', 'App.tsx')
+    const apiFile = join(TEMP_DIR, 'pkg-api', 'src', 'Schema.tsx')
+    const webCss = join(TEMP_DIR, 'pkg-web', 'src', 'globals.css')
+    const apiCss = join(TEMP_DIR, 'pkg-api', 'src', 'globals.css')
+
+    // Both entry points in a single array
+    const settings = { tailwindcss: { entryPoint: [webCss, apiCss] } }
+
+    const webDS = getLoadedDesignSystem(undefined, settings, webFile)
+    const apiDS = getLoadedDesignSystem(undefined, settings, apiFile)
+
+    expect(webDS).not.toBeNull()
+    expect(apiDS).not.toBeNull()
+    expect(webDS!.entryPoint).toContain('pkg-web')
+    expect(apiDS!.entryPoint).toContain('pkg-api')
+  })
+
+  it('createLazyLoader resolves array entry points per file', () => {
+    const webFile = join(TEMP_DIR, 'pkg-web', 'src', 'App.tsx')
+    const apiFile = join(TEMP_DIR, 'pkg-api', 'src', 'Schema.tsx')
+    const webCss = join(TEMP_DIR, 'pkg-web', 'src', 'globals.css')
+    const apiCss = join(TEMP_DIR, 'pkg-api', 'src', 'globals.css')
+
+    let currentFile = webFile
+    const context = {
+      get options() {
+        return [{}]
+      },
+      get settings() {
+        return { tailwindcss: { entryPoint: [webCss, apiCss] } }
+      },
+      get filename() {
+        return currentFile
+      },
+    }
+
+    const getDS = createLazyLoader(context)
+
+    const webResult = getDS()
+    expect(webResult).not.toBeNull()
+    expect(webResult!.entryPoint).toContain('pkg-web')
+    expect(webResult!.cache.isValid('btn')).toBe(true)
+
+    currentFile = apiFile
+    const apiResult = getDS()
+    expect(apiResult).not.toBeNull()
+    expect(apiResult!.entryPoint).toContain('pkg-api')
+    expect(apiResult!.cache.isValid('bg-brand')).toBe(true)
+  })
+})
+
 describe('Multi-DS: createLazyLoader per-file resolution', () => {
   beforeEach(() => resetDesignSystem())
 

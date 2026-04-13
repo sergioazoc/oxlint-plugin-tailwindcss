@@ -59,11 +59,14 @@ export const enforceConsistentVariableSyntax = defineRule({
         additionalProperties: false,
       },
     ],
+    hasSuggestions: true,
+    defaultOptions: [{ syntax: 'shorthand' }],
     messages: {
       useShorthand:
         '"{{className}}" uses explicit var() syntax. Use "{{replacement}}" (shorthand) instead.',
       useExplicit:
         '"{{className}}" uses shorthand syntax. Use "{{replacement}}" (explicit) instead.',
+      suggestReplace: 'Replace "{{className}}" with "{{replacement}}".',
     },
   },
   createOnce(context) {
@@ -109,6 +112,15 @@ export const enforceConsistentVariableSyntax = defineRule({
               node: loc.node,
               messageId,
               data: { className: cls, replacement },
+              suggest: [
+                {
+                  messageId: 'suggestReplace',
+                  data: { className: cls, replacement },
+                  fix(fixer) {
+                    return fixer.replaceTextRange(loc.range, preserveSpaces(loc, fixedValue))
+                  },
+                },
+              ],
             })
           }
         }

@@ -39,7 +39,18 @@ ruleTester.run('no-unknown-classes', noUnknownClasses, {
     {
       code: '<div className="fex items-center" />',
       filename: 'test.tsx',
-      errors: [{ messageId: 'unknownWithSuggestion' }],
+      errors: [
+        {
+          messageId: 'unknownWithSuggestion',
+          suggestions: [
+            {
+              messageId: 'suggestReplace',
+              data: { className: 'fex', replacement: 'flex' },
+              output: '<div className="flex items-center" />',
+            },
+          ],
+        },
+      ],
     },
     {
       code: '<div className="itms-center" />',

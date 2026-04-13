@@ -19,9 +19,11 @@ export const enforcePhysical = defineRule({
     },
     fixable: 'code',
     schema: [],
+    hasSuggestions: true,
     messages: {
       usePhysical:
         '"{{className}}" uses a logical property. Use "{{replacement}}" for consistency.',
+      suggestReplace: 'Replace "{{className}}" with "{{replacement}}".',
     },
   },
   createOnce(context) {
@@ -77,6 +79,15 @@ export const enforcePhysical = defineRule({
               node: loc.node,
               messageId: 'usePhysical',
               data: { className: cls, replacement },
+              suggest: [
+                {
+                  messageId: 'suggestReplace',
+                  data: { className: cls, replacement },
+                  fix(fixer) {
+                    return fixer.replaceTextRange(loc.range, preserveSpaces(loc, fixedValue))
+                  },
+                },
+              ],
             })
           }
         }

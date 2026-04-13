@@ -60,6 +60,25 @@ describe('consistent-variant-order (static fallback)', () => {
         errors: [{ messageId: 'wrongOrder' }],
         output: '<div className={`${base} sm:hover:flex`} />',
       },
+      // Multiple misordered variants in same string
+      {
+        code: '<div className="hover:sm:flex focus:md:block" />',
+        filename: 'test.tsx',
+        errors: [
+          { messageId: 'wrongOrder' },
+          {
+            messageId: 'wrongOrder',
+            suggestions: [
+              {
+                messageId: 'suggestReplace',
+                data: { className: 'focus:md:block', replacement: 'md:focus:block' },
+                output: '<div className="sm:hover:flex md:focus:block" />',
+              },
+            ],
+          },
+        ],
+        output: '<div className="sm:hover:flex md:focus:block" />',
+      },
     ],
   })
 

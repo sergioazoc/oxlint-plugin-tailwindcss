@@ -31,7 +31,19 @@ ruleTester.run('enforce-consistent-variable-syntax', enforceConsistentVariableSy
     {
       code: '<div className="bg-[var(--primary)] text-[var(--text)]" />',
       filename: 'test.tsx',
-      errors: [{ messageId: 'useShorthand' }, { messageId: 'useShorthand' }],
+      errors: [
+        { messageId: 'useShorthand' },
+        {
+          messageId: 'useShorthand',
+          suggestions: [
+            {
+              messageId: 'suggestReplace',
+              data: { className: 'text-[var(--text)]', replacement: 'text-(--text)' },
+              output: '<div className="bg-(--primary) text-(--text)" />',
+            },
+          ],
+        },
+      ],
       output: '<div className="bg-(--primary) text-(--text)" />',
     },
     // With variants

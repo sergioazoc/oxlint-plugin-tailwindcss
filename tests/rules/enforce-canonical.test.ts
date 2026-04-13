@@ -63,5 +63,24 @@ ruleTester.run('enforce-canonical', enforceCanonical, {
       errors: [{ messageId: 'nonCanonical' }],
       output: '<div className="m-0!" />',
     },
+    // Multiple non-canonical classes in same string
+    {
+      code: '<div className="-m-0 -mt-0 flex" />',
+      filename: 'test.tsx',
+      errors: [
+        { messageId: 'nonCanonical' },
+        {
+          messageId: 'nonCanonical',
+          suggestions: [
+            {
+              messageId: 'suggestReplace',
+              data: { className: '-mt-0', replacement: 'mt-0' },
+              output: '<div className="m-0 mt-0 flex" />',
+            },
+          ],
+        },
+      ],
+      output: '<div className="m-0 mt-0 flex" />',
+    },
   ],
 })

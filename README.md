@@ -97,6 +97,28 @@ If auto-detection doesn't find your CSS file, set `entryPoint` once in `settings
 
 The design system is loaded once per entry point and shared across all rules. In monorepos, each package resolves its own entry point automatically via `package.json` boundaries.
 
+### Multiple entry points (monorepos)
+
+For monorepos where auto-detection isn't enough, `entryPoint` accepts an array. The plugin picks the closest entry point for each file based on directory proximity:
+
+```jsonc
+{
+  "settings": {
+    "tailwindcss": {
+      "entryPoint": [
+        "packages/web/src/globals.css",
+        "packages/admin/src/styles.css",
+        "packages/marketing/src/tailwind.css",
+      ],
+    },
+  },
+}
+```
+
+For example, `packages/web/src/App.tsx` resolves to `packages/web/src/globals.css` and `packages/admin/src/Dashboard.tsx` resolves to `packages/admin/src/styles.css`.
+
+### Per-rule override
+
 You can also override per rule if needed:
 
 ```jsonc
@@ -109,6 +131,8 @@ You can also override per rule if needed:
 
 Resolution order: rule option > `settings.tailwindcss.entryPoint` > auto-detect.
 
+### Timeout
+
 For slow environments (large monorepos, CI), you can increase the design system loading timeout:
 
 ```jsonc
@@ -119,6 +143,34 @@ For slow environments (large monorepos, CI), you can increase the design system 
     },
   },
 }
+```
+
+### Debug logging
+
+To see which design system is used for each file, enable debug mode:
+
+```jsonc
+{
+  "settings": {
+    "tailwindcss": {
+      "debug": true,
+    },
+  },
+}
+```
+
+Or use the environment variable (no config changes needed):
+
+```bash
+DEBUG=oxlint-tailwindcss oxlint .
+```
+
+Output:
+
+```
+[oxlint-tailwindcss] Loaded design system from "packages/web/src/globals.css"
+[oxlint-tailwindcss] packages/web/src/App.tsx → packages/web/src/globals.css
+[oxlint-tailwindcss] packages/admin/src/Dashboard.tsx → packages/admin/src/styles.css
 ```
 
 If no entry point is found (neither configured nor auto-detected), rules that require the design system (`no-unknown-classes`, `no-conflicting-classes`, `no-deprecated-classes`, `enforce-canonical`, `enforce-sort-order`, `no-unnecessary-arbitrary-value`, `consistent-variant-order`) are silently disabled. All other rules work without it.

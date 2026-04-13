@@ -59,5 +59,24 @@ ruleTester.run('no-unnecessary-arbitrary-value', noUnnecessaryArbitraryValue, {
       errors: [{ messageId: 'unnecessaryArbitrary' }],
       output: '<div className="!h-auto" />',
     },
+    // Multiple unnecessary arbitraries in same string
+    {
+      code: '<div className="h-[auto] w-[auto] flex" />',
+      filename: 'test.tsx',
+      errors: [
+        { messageId: 'unnecessaryArbitrary' },
+        {
+          messageId: 'unnecessaryArbitrary',
+          suggestions: [
+            {
+              messageId: 'suggestReplace',
+              data: { className: 'w-[auto]', replacement: 'w-auto' },
+              output: '<div className="h-auto w-auto flex" />',
+            },
+          ],
+        },
+      ],
+      output: '<div className="h-auto w-auto flex" />',
+    },
   ],
 })

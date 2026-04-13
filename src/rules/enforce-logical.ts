@@ -34,9 +34,11 @@ export const enforceLogical = defineRule({
     },
     fixable: 'code',
     schema: [],
+    hasSuggestions: true,
     messages: {
       useLogical:
         '"{{className}}" uses a physical property. Use "{{replacement}}" for LTR/RTL support.',
+      suggestReplace: 'Replace "{{className}}" with "{{replacement}}".',
     },
   },
   createOnce(context) {
@@ -92,6 +94,15 @@ export const enforceLogical = defineRule({
               node: loc.node,
               messageId: 'useLogical',
               data: { className: cls, replacement },
+              suggest: [
+                {
+                  messageId: 'suggestReplace',
+                  data: { className: cls, replacement },
+                  fix(fixer) {
+                    return fixer.replaceTextRange(loc.range, preserveSpaces(loc, fixedValue))
+                  },
+                },
+              ],
             })
           }
         }

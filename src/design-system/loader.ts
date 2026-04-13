@@ -1,8 +1,9 @@
 import { DesignSystemCache } from './cache'
 import { loadDesignSystemSync } from './sync-loader'
 import { autoDetectEntryPoint } from './auto-detect'
+import { debugLog, isDebugEnabled, setDebugEnabled, resetDebug } from './debug'
 import { statSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { dirname, resolve, relative } from 'node:path'
 
 export interface LoadResult {
   cache: DesignSystemCache
@@ -21,14 +22,51 @@ let lastLoadedPath: string | null = null
 
 /**
  * Extracts `entryPoint` from `context.settings.tailwindcss`.
+ * Supports both `string` and `string[]` (for monorepos).
  */
-function entryPointFromSettings(settings?: Readonly<Record<string, unknown>>): string | undefined {
+function entryPointFromSettings(
+  settings?: Readonly<Record<string, unknown>>,
+): string | string[] | undefined {
   const tw = settings?.tailwindcss
   if (tw && typeof tw === 'object' && 'entryPoint' in tw) {
     const ep = (tw as Record<string, unknown>).entryPoint
     if (typeof ep === 'string') return ep
+    if (Array.isArray(ep) && ep.length > 0 && ep.every((e) => typeof e === 'string')) {
+      return ep as string[]
+    }
   }
   return undefined
+}
+
+/**
+ * Given an array of entry points and a file path, pick the one that shares
+ * the longest common directory prefix with the file. Falls back to first entry.
+ */
+function resolveClosestEntryPoint(entryPoints: string[], filePath?: string): string {
+  if (entryPoints.length === 1 || !filePath) return entryPoints[0]
+
+  const fileDir = dirname(resolve(filePath))
+  let best = entryPoints[0]
+  let bestLen = 0
+
+  for (const ep of entryPoints) {
+    const epDir = dirname(resolve(ep))
+    // Count shared path prefix length
+    const len = commonPrefixLength(fileDir, epDir)
+    if (len > bestLen) {
+      bestLen = len
+      best = ep
+    }
+  }
+
+  return best
+}
+
+function commonPrefixLength(a: string, b: string): number {
+  const len = Math.min(a.length, b.length)
+  let i = 0
+  while (i < len && a[i] === b[i]) i++
+  return i
 }
 
 /**
@@ -74,7 +112,12 @@ export function getLoadedDesignSystem(
 ): LoadResult | null {
   // Explicit entry points (rule option or settings) update the fallback path.
   // Auto-detect results do NOT — this prevents cross-package contamination in monorepos.
-  const explicitEntry = entryPoint ?? entryPointFromSettings(settings)
+  const settingsEntry = entryPointFromSettings(settings)
+  const explicitEntry =
+    entryPoint ??
+    (Array.isArray(settingsEntry)
+      ? resolveClosestEntryPoint(settingsEntry, filePath)
+      : settingsEntry)
   const cssPath = explicitEntry ?? cachedAutoDetect(filePath) ?? lastLoadedPath
   if (!cssPath) return null
 
@@ -93,7 +136,7 @@ export function getLoadedDesignSystem(
 
     const cache = DesignSystemCache.fromPrecomputed(data)
     dsCache.set(resolvedPath, { cache, mtime })
-    console.error(`[oxlint-tailwindcss] Loaded design system from "${resolvedPath}"`)
+    debugLog(`Loaded design system from "${resolvedPath}"`)
     if (explicitEntry) lastLoadedPath = resolvedPath
     return { cache, entryPoint: resolvedPath }
   } catch {
@@ -120,6 +163,7 @@ export function createLazyLoader(context: {
   let lastResult: LoadResult | null = null
   let fixedEntryResolved = false
   let fixedResult: LoadResult | null = null
+  let debugInitialized = false
 
   return () => {
     let entryPoint: string | undefined
@@ -138,13 +182,40 @@ export function createLazyLoader(context: {
       filePath = context.filename
     } catch {}
 
+    // Initialize debug from settings on first successful access
+    if (!debugInitialized && settings) {
+      debugInitialized = true
+      setDebugEnabled(isDebugEnabled(settings))
+    }
+
     // Fixed entry point (rule option or settings) — same for all files
-    const fixedEntry = entryPoint ?? entryPointFromSettings(settings)
+    const settingsEntry = entryPointFromSettings(settings)
+    const fixedEntry = entryPoint ?? (typeof settingsEntry === 'string' ? settingsEntry : undefined)
     if (fixedEntry) {
       if (fixedEntryResolved) return fixedResult
       fixedEntryResolved = true
       fixedResult = getLoadedDesignSystem(fixedEntry, settings, filePath)
+      if (fixedResult && filePath) {
+        debugLog(
+          `${relative(process.cwd(), filePath)} → ${relative(process.cwd(), fixedResult.entryPoint)}`,
+        )
+      }
       return fixedResult
+    }
+
+    // Array entry point from settings — resolve closest per file
+    if (Array.isArray(settingsEntry)) {
+      const closest = resolveClosestEntryPoint(settingsEntry, filePath)
+      // Re-resolve when the file changes (different file may map to different entry)
+      if (filePath && filePath === lastFilePath) return lastResult
+      if (filePath) lastFilePath = filePath
+      lastResult = getLoadedDesignSystem(closest, settings, filePath)
+      if (lastResult && filePath) {
+        debugLog(
+          `${relative(process.cwd(), filePath)} → ${relative(process.cwd(), lastResult.entryPoint)}`,
+        )
+      }
+      return lastResult
     }
 
     // Auto-detect mode: re-resolve when the file changes
@@ -152,6 +223,11 @@ export function createLazyLoader(context: {
     if (filePath) lastFilePath = filePath
 
     lastResult = getLoadedDesignSystem(undefined, settings, filePath)
+    if (lastResult && filePath) {
+      debugLog(
+        `${relative(process.cwd(), filePath)} → ${relative(process.cwd(), lastResult.entryPoint)}`,
+      )
+    }
     return lastResult
   }
 }
@@ -163,4 +239,5 @@ export function resetDesignSystem(): void {
   dsCache.clear()
   autoDetectCache.clear()
   lastLoadedPath = null
+  resetDebug()
 }

@@ -20,9 +20,11 @@ export const noUnnecessaryArbitraryValue = defineRule({
         additionalProperties: false,
       },
     ],
+    hasSuggestions: true,
     messages: {
       unnecessaryArbitrary:
         '"{{className}}" can be written as "{{replacement}}". Use the named class instead.',
+      suggestReplace: 'Replace "{{className}}" with "{{replacement}}".',
     },
   },
   createOnce(context) {
@@ -81,6 +83,15 @@ export const noUnnecessaryArbitraryValue = defineRule({
               node: loc.node,
               messageId: 'unnecessaryArbitrary',
               data: { className: cls, replacement },
+              suggest: [
+                {
+                  messageId: 'suggestReplace',
+                  data: { className: cls, replacement },
+                  fix(fixer) {
+                    return fixer.replaceTextRange(loc.range, preserveSpaces(loc, fixedValue))
+                  },
+                },
+              ],
             })
           }
         }

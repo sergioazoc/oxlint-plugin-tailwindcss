@@ -27,7 +27,19 @@ ruleTester.run('enforce-consistent-important-position', enforceConsistentImporta
     {
       code: '<div className="!font-bold !text-red" />',
       filename: 'test.tsx',
-      errors: [{ messageId: 'useSuffix' }, { messageId: 'useSuffix' }],
+      errors: [
+        { messageId: 'useSuffix' },
+        {
+          messageId: 'useSuffix',
+          suggestions: [
+            {
+              messageId: 'suggestReplace',
+              data: { className: '!text-red', replacement: 'text-red!' },
+              output: '<div className="font-bold! text-red!" />',
+            },
+          ],
+        },
+      ],
       output: '<div className="font-bold! text-red!" />',
     },
     // Template literal: preserve trailing space before expression

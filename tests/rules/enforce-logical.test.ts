@@ -33,7 +33,19 @@ ruleTester.run('enforce-logical', enforceLogical, {
     {
       code: '<div className="ml-4 mr-4 flex" />',
       filename: 'test.tsx',
-      errors: [{ messageId: 'useLogical' }, { messageId: 'useLogical' }],
+      errors: [
+        { messageId: 'useLogical' },
+        {
+          messageId: 'useLogical',
+          suggestions: [
+            {
+              messageId: 'suggestReplace',
+              data: { className: 'mr-4', replacement: 'me-4' },
+              output: '<div className="ms-4 me-4 flex" />',
+            },
+          ],
+        },
+      ],
       output: '<div className="ms-4 me-4 flex" />',
     },
     // Template literal: preserve trailing space before expression

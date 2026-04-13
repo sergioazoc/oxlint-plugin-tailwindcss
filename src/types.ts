@@ -10,7 +10,9 @@ export interface ExtractorExclusions {
 }
 
 export interface PluginSettings {
-  entryPoint?: string
+  /** CSS entry point. String for single project, array for monorepos (closest to file wins). */
+  entryPoint?: string | string[]
+  /** Enable debug logging to stderr (also activable via DEBUG=oxlint-tailwindcss env var) */
   debug?: boolean
   /** Timeout in milliseconds for design system loading (default: 30000) */
   timeout?: number
