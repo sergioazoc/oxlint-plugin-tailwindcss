@@ -70,6 +70,18 @@ function commonPrefixLength(a: string, b: string): number {
 }
 
 /**
+ * Extracts `rootFontSize` from `context.settings.tailwindcss` (default: 16).
+ */
+export function rootFontSizeFromSettings(settings?: Readonly<Record<string, unknown>>): number {
+  const tw = settings?.tailwindcss
+  if (tw && typeof tw === 'object' && 'rootFontSize' in tw) {
+    const v = (tw as Record<string, unknown>).rootFontSize
+    if (typeof v === 'number' && v > 0) return v
+  }
+  return 16
+}
+
+/**
  * Extracts `timeout` from `context.settings.tailwindcss`.
  */
 function timeoutFromSettings(settings?: Readonly<Record<string, unknown>>): number | undefined {

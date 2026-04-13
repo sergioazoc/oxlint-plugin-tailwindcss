@@ -1,7 +1,34 @@
 import { defineRule } from '@oxlint/plugins'
 import { createExtractorVisitors, preserveSpaces, type ClassLocation } from '../utils/extractors'
 import { splitClasses } from '../utils/class-splitter'
-import { createLazyLoader } from '../design-system/loader'
+import { createLazyLoader, rootFontSizeFromSettings } from '../design-system/loader'
+import { canonicalizeClassesSync } from '../design-system/canonicalize-service'
+import { safeSettings } from '../types'
+
+/**
+ * Preserve the user's ! position after canonicalization.
+ * canonicalizeCandidates always normalizes ! to suffix, but
+ * enforce-consistent-important-position handles that separately.
+ */
+function preserveImportantPosition(original: string, canonicalized: string): string {
+  const origHasPrefix = original.startsWith('!') || /^[a-z0-9[\]*@-]*:!/.test(original)
+  const origHasSuffix = original.endsWith('!') && !origHasPrefix
+
+  if (!origHasPrefix && !origHasSuffix) {
+    // Original has no ! — strip any ! the canonicalizer added
+    return canonicalized.replace(/!/g, '')
+  }
+
+  // Strip ! from canonicalized, then re-add in original position
+  const bare = canonicalized.replace(/!/g, '')
+  if (origHasPrefix) {
+    // Re-add ! after variant prefix (e.g. "hover:!p-0.5")
+    const variantPrefix = bare.slice(0, bare.length - bare.replace(/^[a-z0-9[\]*@-]*:/g, '').length)
+    return variantPrefix + '!' + bare.slice(variantPrefix.length)
+  }
+  // Suffix
+  return bare + '!'
+}
 
 export const enforceCanonical = defineRule({
   meta: {
@@ -28,15 +55,37 @@ export const enforceCanonical = defineRule({
   createOnce(context) {
     const getDS = createLazyLoader(context)
 
+    let _rem: number | null = null
+    function getRem(): number {
+      if (_rem === null) {
+        const settings = safeSettings(context)
+        _rem = rootFontSizeFromSettings(settings)
+      }
+      return _rem
+    }
+
     function check(locations: ClassLocation[]) {
       const ds = getDS()
       if (!ds) return
-      const { cache } = ds
+      const { cache, entryPoint } = ds
+
       for (const loc of locations) {
         const classes = splitClasses(loc.value)
 
-        // Pre-compute canonical forms for all classes once
-        const canonicals = classes.map((cls) => cache.canonicalize(cls))
+        // Try dynamic canonicalization via worker (handles px→named, theme(), var() syntax, etc.)
+        const rem = getRem()
+        const dynamic = canonicalizeClassesSync(entryPoint, classes, rem)
+
+        // Use dynamic results if available, otherwise fall back to precomputed cache
+        let canonicals: string[]
+        if (dynamic) {
+          // Preserve user's ! position — canonicalizeCandidates normalizes to suffix,
+          // but enforce-consistent-important-position handles that separately
+          canonicals = classes.map((cls, i) => preserveImportantPosition(cls, dynamic[i]))
+        } else {
+          canonicals = classes.map((cls) => cache.canonicalize(cls))
+        }
+
         let firstNonCanonical = true
 
         for (let i = 0; i < classes.length; i++) {

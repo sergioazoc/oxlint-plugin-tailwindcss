@@ -14,6 +14,8 @@ export interface PluginSettings {
   entryPoint?: string | string[]
   /** Enable debug logging to stderr (also activable via DEBUG=oxlint-tailwindcss env var) */
   debug?: boolean
+  /** Root font size in pixels for px→named conversion (default: 16). Used by enforce-canonical. */
+  rootFontSize?: number
   /** Timeout in milliseconds for design system loading (default: 30000) */
   timeout?: number
   /** Additional JSX attribute names to scan for Tailwind classes (added to defaults) */

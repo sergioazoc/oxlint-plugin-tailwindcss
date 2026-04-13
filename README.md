@@ -145,6 +145,20 @@ For slow environments (large monorepos, CI), you can increase the design system 
 }
 ```
 
+### Root font size
+
+The `enforce-canonical` rule converts px-based arbitrary values to named classes (e.g. `p-[2px]` → `p-0.5`). This conversion depends on the root font size:
+
+```jsonc
+{
+  "settings": {
+    "tailwindcss": {
+      "rootFontSize": 16, // pixels (default: 16)
+    },
+  },
+}
+```
+
 ### Debug logging
 
 To see which design system is used for each file, enable debug mode:
@@ -447,14 +461,19 @@ Only flags when the exact same utility exists both as base and with a conditiona
 
 #### `enforce-canonical`
 
-Suggests the canonical form of a class when a shorter equivalent exists. Only known classes are checked — arbitrary values are left as-is.
+Enforces canonical Tailwind CSS class names. Uses `canonicalizeCandidates()` from the Tailwind CSS engine dynamically — the same API that powers Tailwind CSS IntelliSense's `suggestCanonicalClasses`.
 
 ```tsx
 // ❌ Bad → ✅ Fixed
-"-m-0"   → "m-0"
-"-mt-0"  → "mt-0"
-"-p-0"   → "p-0"
+"-m-0"                              → "m-0"
+"-mt-0"                             → "mt-0"
+"p-[2px]"                           → "p-0.5"
+"max-w-[400px]"                     → "max-w-100"
+"text-[var(--color-text)]/90"       → "text-(--color-text)/90"
+"[--w-padding:theme(spacing.1)]"    → "[--w-padding:--spacing(1)]"
 ```
+
+The px→named conversion (e.g. `p-[2px]` → `p-0.5`) depends on `rootFontSize` (default: 16).
 
 **Requires design system.** **Autofix:** Replaces with canonical form.
 

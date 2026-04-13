@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0 (2026-04-13)
+
+- **Dynamic canonicalization via `canonicalizeCandidates`** ([#11](https://github.com/sergioazoc/oxlint-tailwindcss/issues/11)) — `enforce-canonical` now calls Tailwind's `canonicalizeCandidates()` API dynamically via a persistent worker thread (same pattern as the sort service). This enables canonicalization of arbitrary user classes that couldn't be precomputed. Examples: `p-[2px]` → `p-0.5`, `max-w-[400px]` → `max-w-100`, `text-[var(--color-text)]/90` → `text-(--color-text)/90`, `[--w-padding:theme(spacing.1)]` → `[--w-padding:--spacing(1)]`. Falls back to the precomputed cache if the worker is unavailable.
+- **New setting: `rootFontSize`** — `settings.tailwindcss.rootFontSize` (default: 16) controls the px→named class conversion in `enforce-canonical`. Matches the Tailwind CSS IntelliSense `rootFontSize` setting.
+- 707 tests (up from 700).
+
 ## 0.5.0 (2026-04-13)
 
 - **Suggestions API for IDE quick-fixes** — 10 rules now provide `suggest` actions in IDEs. When multiple classes have errors in the same attribute, the first gets an autofix and the rest now offer an optional quick-fix (previously they had no action). `no-unknown-classes` also offers a quick-fix to replace typos with the Levenshtein suggestion. Affected rules: `enforce-logical`, `enforce-physical`, `enforce-negative-arbitrary-values`, `enforce-consistent-important-position`, `enforce-consistent-variable-syntax`, `no-deprecated-classes`, `consistent-variant-order`, `enforce-canonical`, `no-unnecessary-arbitrary-value`, `no-unknown-classes`.
