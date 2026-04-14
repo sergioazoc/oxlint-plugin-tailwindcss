@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.1 (2026-04-14)
+
+- **Fix `consistent-variant-order` incorrect reorder for pseudo-elements** ([#12](https://github.com/sergioazoc/oxlint-tailwindcss/issues/12)) — The rule incorrectly moved pseudo-element variants (`before:`, `after:`, `placeholder:`, etc.) before element-selecting variants (arbitrary selectors `[&>svg]:`, `has-[.active]:`, `aria-expanded:`, `data-[state=open]:`, `open:`, etc.), producing broken CSS in Tailwind v4. For example, `[&>*[data-role="user"]]:after:right-0` was "fixed" to `after:[&>*[data-role="user"]]:right-0`, which generates `&::after { &>*[data-role=user] { ... } }` — pseudo-elements have no children. Pseudo-element variants are now always kept innermost (closest to the utility) in both static and design system ordering modes.
+- 733 tests (up from 707).
+
 ## 0.6.0 (2026-04-13)
 
 - **Dynamic canonicalization via `canonicalizeCandidates`** ([#11](https://github.com/sergioazoc/oxlint-tailwindcss/issues/11)) — `enforce-canonical` now calls Tailwind's `canonicalizeCandidates()` API dynamically via a persistent worker thread (same pattern as the sort service). This enables canonicalization of arbitrary user classes that couldn't be precomputed. Examples: `p-[2px]` → `p-0.5`, `max-w-[400px]` → `max-w-100`, `text-[var(--color-text)]/90` → `text-(--color-text)/90`, `[--w-padding:theme(spacing.1)]` → `[--w-padding:--spacing(1)]`. Falls back to the precomputed cache if the worker is unavailable.

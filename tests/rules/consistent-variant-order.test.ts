@@ -26,6 +26,20 @@ describe('consistent-variant-order (static fallback)', () => {
       { code: '<div className="**:[div]:flex" />', filename: 'test.tsx' },
       { code: '<div className="*:[svg:not([class*=size-])]:size-6" />', filename: 'test.tsx' },
       { code: '<div className="*:[img:first-child]:rounded-t-sm" />', filename: 'test.tsx' },
+      // Pseudo-elements must stay after element-selecting variants (#12)
+      { code: '<div className="[&>svg]:before:text-red-500" />', filename: 'test.tsx' },
+      { code: '<div className="[&>*[data-role=user]]:after:right-0" />', filename: 'test.tsx' },
+      { code: '<div className="[&_p]:after:underline" />', filename: 'test.tsx' },
+      { code: '<div className="[&:nth-child(2)]:before:text-red-500" />', filename: 'test.tsx' },
+      { code: '<div className="has-[.active]:before:text-red-500" />', filename: 'test.tsx' },
+      { code: '<div className="not-[.disabled]:after:text-red-500" />', filename: 'test.tsx' },
+      { code: '<div className="aria-expanded:after:text-red-500" />', filename: 'test.tsx' },
+      { code: '<div className="data-[state=open]:before:text-red-500" />', filename: 'test.tsx' },
+      { code: '<div className="open:before:text-red-500" />', filename: 'test.tsx' },
+      // Triple variants: pseudo-element stays innermost
+      { code: '<div className="sm:[&>svg]:after:text-red-500" />', filename: 'test.tsx' },
+      { code: '<div className="hover:[&>svg]:before:text-red-500" />', filename: 'test.tsx' },
+      { code: '<div className="dark:has-[.active]:before:text-red-500" />', filename: 'test.tsx' },
     ],
     invalid: [
       {
@@ -59,6 +73,37 @@ describe('consistent-variant-order (static fallback)', () => {
         filename: 'test.tsx',
         errors: [{ messageId: 'wrongOrder' }],
         output: '<div className={`${base} sm:hover:flex`} />',
+      },
+      // Pseudo-element incorrectly before element-selecting variant (#12)
+      {
+        code: '<div className="before:[&>svg]:text-red-500" />',
+        filename: 'test.tsx',
+        errors: [{ messageId: 'wrongOrder' }],
+        output: '<div className="[&>svg]:before:text-red-500" />',
+      },
+      {
+        code: '<div className="after:has-[.active]:text-red-500" />',
+        filename: 'test.tsx',
+        errors: [{ messageId: 'wrongOrder' }],
+        output: '<div className="has-[.active]:after:text-red-500" />',
+      },
+      {
+        code: '<div className="before:aria-expanded:text-red-500" />',
+        filename: 'test.tsx',
+        errors: [{ messageId: 'wrongOrder' }],
+        output: '<div className="aria-expanded:before:text-red-500" />',
+      },
+      {
+        code: '<div className="before:open:text-red-500" />',
+        filename: 'test.tsx',
+        errors: [{ messageId: 'wrongOrder' }],
+        output: '<div className="open:before:text-red-500" />',
+      },
+      {
+        code: '<div className="sm:after:[&>svg]:text-red-500" />',
+        filename: 'test.tsx',
+        errors: [{ messageId: 'wrongOrder' }],
+        output: '<div className="sm:[&>svg]:after:text-red-500" />',
       },
       // Multiple misordered variants in same string
       {
@@ -125,6 +170,14 @@ describe('consistent-variant-order (design system)', () => {
       // Child/descendant selectors with arbitrary variants must preserve order (DS)
       { code: '<div className="*:[a]:underline" />', filename: 'test.tsx' },
       { code: '<div className="**:[[cmdk-group-heading]]:px-2" />', filename: 'test.tsx' },
+      // Pseudo-elements must stay after element-selecting variants in DS mode (#12)
+      { code: '<div className="[&>svg]:before:text-red-500" />', filename: 'test.tsx' },
+      { code: '<div className="has-[.active]:after:text-red-500" />', filename: 'test.tsx' },
+      { code: '<div className="aria-expanded:before:text-red-500" />', filename: 'test.tsx' },
+      { code: '<div className="data-[state=open]:after:text-red-500" />', filename: 'test.tsx' },
+      // Pseudo-elements stay innermost even when DS puts them early
+      { code: '<div className="hover:before:text-red-500" />', filename: 'test.tsx' },
+      { code: '<div className="sm:after:text-red-500" />', filename: 'test.tsx' },
     ],
     invalid: [
       {
@@ -144,6 +197,25 @@ describe('consistent-variant-order (design system)', () => {
         filename: 'test.tsx',
         errors: [{ messageId: 'wrongOrder' }],
         output: '<div className="hover:dark:text-white" />',
+      },
+      // Pseudo-element incorrectly before element-selecting variant (DS mode)
+      {
+        code: '<div className="before:[&>svg]:text-red-500" />',
+        filename: 'test.tsx',
+        errors: [{ messageId: 'wrongOrder' }],
+        output: '<div className="[&>svg]:before:text-red-500" />',
+      },
+      {
+        code: '<div className="before:hover:text-red-500" />',
+        filename: 'test.tsx',
+        errors: [{ messageId: 'wrongOrder' }],
+        output: '<div className="hover:before:text-red-500" />',
+      },
+      {
+        code: '<div className="after:data-[state=open]:text-red-500" />',
+        filename: 'test.tsx',
+        errors: [{ messageId: 'wrongOrder' }],
+        output: '<div className="data-[state=open]:after:text-red-500" />',
       },
     ],
   })

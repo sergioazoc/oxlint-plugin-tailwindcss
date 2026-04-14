@@ -10,6 +10,23 @@ interface Options {
   order?: string[]
 }
 
+// Pseudo-element variants — must always be innermost (closest to the utility).
+// In Tailwind v4 variants apply left-to-right, so pseudo-elements placed before
+// element-selecting variants (arbitrary selectors, has-[], aria-*, etc.) produce
+// broken CSS (e.g. `&::before { &>svg { ... } }` — pseudo-elements have no children).
+const PSEUDO_ELEMENTS = new Set([
+  'before',
+  'after',
+  'file',
+  'placeholder',
+  'selection',
+  'marker',
+  'backdrop',
+  'first-line',
+  'first-letter',
+  'details-content',
+])
+
 // Default variant ordering: responsive → features → color scheme → container →
 // group/peer → interactive states → form states → content → pseudo elements
 const DEFAULT_VARIANT_ORDER = [
@@ -177,10 +194,24 @@ export const consistentVariantOrder = defineRule({
       if (variants.length < 2) return null
 
       const sorted = [...variants].sort((a, b) => getVariantPriority(a) - getVariantPriority(b))
-      if (variants.every((v, i) => v === sorted[i])) return null
+
+      // Pseudo-elements must always be innermost (last in the variant chain).
+      // Partition sorted variants: non-pseudo-elements first, pseudo-elements last.
+      const nonPseudo: string[] = []
+      const pseudo: string[] = []
+      for (const v of sorted) {
+        if (PSEUDO_ELEMENTS.has(v)) {
+          pseudo.push(v)
+        } else {
+          nonPseudo.push(v)
+        }
+      }
+      const final = nonPseudo.length > 0 && pseudo.length > 0 ? [...nonPseudo, ...pseudo] : sorted
+
+      if (variants.every((v, i) => v === final[i])) return null
 
       const utility = extractUtility(cls)
-      return sorted.join(':') + ':' + utility
+      return final.join(':') + ':' + utility
     }
 
     function check(locations: ClassLocation[]) {

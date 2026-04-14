@@ -652,7 +652,7 @@ Does NOT convert complex expressions — only simple `var(--name)` wrappers:
 
 Enforces a consistent order for variant prefixes.
 
-Uses the design system's variant order when available, falls back to a sensible static default. Only checks classes with 2+ variants.
+Uses the design system's variant order when available, falls back to a sensible static default. Only checks classes with 2+ variants. Pseudo-element variants (`before:`, `after:`, `placeholder:`, etc.) are always kept innermost (closest to the utility) regardless of the ordering source — placing them before element-selecting variants like `[&>svg]:` or `has-[.active]:` produces broken CSS in Tailwind v4.
 
 **Options:**
 

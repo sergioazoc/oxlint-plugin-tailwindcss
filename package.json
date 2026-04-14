@@ -1,6 +1,6 @@
 {
   "name": "oxlint-tailwindcss",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Tailwind CSS linting rules for oxlint",
   "keywords": [
     "css",
@@ -61,7 +61,7 @@
     "@oxlint/plugins": "^1.60.0",
     "@tailwindcss/typography": "^0.5.19",
     "@types/node": "^25.6.0",
-    "@typescript/native-preview": "7.0.0-dev.20260413.1",
+    "@typescript/native-preview": "7.0.0-dev.20260414.1",
     "oxfmt": "^0.45.0",
     "oxlint": "^1.60.0",
     "tsdown": "^0.21.8",
