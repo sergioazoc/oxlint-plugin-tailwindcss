@@ -112,6 +112,21 @@ export function hasArbitraryValue(cls: string): boolean {
 }
 
 /**
+ * Checks if a class's utility part contains dynamic value syntax: either
+ * arbitrary brackets (`w-[200px]`) or CSS variable shorthand (`bg-(--color)`).
+ *
+ * Unlike `hasArbitraryValue`, this also catches `(--var)` shorthand — both
+ * forms are what require the async Tailwind DS to canonicalize, because
+ * their value space is unbounded. Simple named classes (`flex`, `px-4`,
+ * even with variants like `[&>svg]:hover:flex`) can be canonicalized from
+ * the precomputed cache without touching the worker.
+ */
+export function utilityHasDynamicValue(cls: string): boolean {
+  const utility = extractUtility(cls)
+  return utility.includes('[') || utility.includes('(')
+}
+
+/**
  * Gets the arbitrary value from a class, or null if none.
  * e.g. "w-[200px]" → "200px"
  *      "bg-[#ff0000]" → "#ff0000"

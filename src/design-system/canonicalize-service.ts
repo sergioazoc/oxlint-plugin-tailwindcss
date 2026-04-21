@@ -1,12 +1,24 @@
 /**
  * Persistent canonicalize service using worker_threads + SharedArrayBuffer.
  *
- * Calls `ds.canonicalizeCandidates(classes, { rem })` dynamically via a worker
+ * Calls `ds.canonicalizeCandidates([cls], { rem })` dynamically via a worker
  * thread. Same pattern as sort-service.ts — loads the DS once, then accepts
  * requests synchronously via Atomics.wait().
  *
  * This enables canonicalization of arbitrary user classes (e.g. `p-[2px]` → `p-0.5`)
  * which can't be precomputed because the input space is infinite.
+ *
+ * ## Per-class cache (process-wide)
+ *
+ * Results are cached by `cssPath\0rem\0class`. The worker is invoked only for
+ * cache misses. In practice the cache converges quickly — after the first few
+ * files any given class has been seen, and every subsequent lookup is O(1).
+ *
+ * ## Per-class worker calls
+ *
+ * `ds.canonicalizeCandidates` deduplicates its input (see sync-loader.ts note),
+ * so the worker MUST call it one class at a time to preserve input order/length.
+ * The cache amortizes the per-call overhead.
  */
 
 import { Worker } from 'node:worker_threads'
@@ -55,7 +67,12 @@ async function main() {
     try {
       const { classes, rem } = JSON.parse(requestStr);
       const options = rem ? { rem } : undefined;
-      const result = ds.canonicalizeCandidates(classes, options);
+      // canonicalizeCandidates deduplicates its input, so we must call it
+      // one class at a time to preserve order/length. See sync-loader.ts.
+      const result = classes.map((cls) => {
+        const r = ds.canonicalizeCandidates([cls], options);
+        return r[0] ?? cls;
+      });
       response = Buffer.from(JSON.stringify(result), 'utf-8');
     } catch {
       response = Buffer.from('null', 'utf-8');
@@ -78,6 +95,11 @@ let dataArea: Uint8Array | null = null
 let initialized = false
 let available = true
 let currentCssPath: string | null = null
+
+// Process-wide cache of canonicalized classes.
+// Key: `${cssPath}\0${rem}\0${className}` — isolates monorepos (multiple DSs)
+// and different rem settings. Value: canonicalized class string.
+const canonCache = new Map<string, string>()
 
 function ensureService(cssPath: string): boolean {
   if (initialized && currentCssPath === cssPath) return available
@@ -143,15 +165,11 @@ function cleanup(): void {
 }
 
 /**
- * Canonicalize classes using the Tailwind CSS design system via worker thread.
- * Returns the canonicalized class array, or null if the service is unavailable.
+ * Round-trip raw worker call for a batch of classes (no caching).
+ * Returns the canonicalized class array (same length/order as input),
+ * or null if the service is unavailable.
  */
-export function canonicalizeClassesSync(
-  cssPath: string,
-  classes: string[],
-  rem?: number,
-): string[] | null {
-  if (!ensureService(cssPath)) return null
+function callWorker(classes: string[], rem?: number): string[] | null {
   if (!controlArray || !dataArea || !lengthView) return null
 
   try {
@@ -184,6 +202,61 @@ export function canonicalizeClassesSync(
 }
 
 /**
+ * Canonicalize classes using the Tailwind CSS design system via worker thread.
+ * Returns the canonicalized class array (same length/order as input), or null
+ * if the service is unavailable.
+ *
+ * Uses a process-wide per-class cache: the worker is invoked only for classes
+ * not already seen with this (cssPath, rem) combination.
+ */
+export function canonicalizeClassesSync(
+  cssPath: string,
+  classes: string[],
+  rem?: number,
+): string[] | null {
+  if (!ensureService(cssPath)) return null
+
+  const out: string[] = Array.from({ length: classes.length })
+  const missingIdx: number[] = []
+  const missing: string[] = []
+  const cachePrefix = `${cssPath}\0${rem ?? ''}\0`
+
+  for (let i = 0; i < classes.length; i++) {
+    const key = cachePrefix + classes[i]
+    const hit = canonCache.get(key)
+    if (hit !== undefined) {
+      out[i] = hit
+    } else {
+      missingIdx.push(i)
+      missing.push(classes[i])
+    }
+  }
+
+  if (missing.length === 0) return out
+
+  // Deduplicate the worker request: if a location repeats a class, we don't
+  // need to canonicalize it twice. The per-class cache serves repeats in
+  // subsequent calls, but within a single call the cache is still cold.
+  const uniqueMissing = [...new Set(missing)]
+  const fresh = callWorker(uniqueMissing, rem)
+  if (!fresh || fresh.length !== uniqueMissing.length) return null
+
+  const freshByClass = new Map<string, string>()
+  for (let k = 0; k < uniqueMissing.length; k++) {
+    freshByClass.set(uniqueMissing[k], fresh[k])
+  }
+
+  for (let j = 0; j < missing.length; j++) {
+    const cls = missing[j]
+    const value = freshByClass.get(cls) ?? cls
+    canonCache.set(cachePrefix + cls, value)
+    out[missingIdx[j]] = value
+  }
+
+  return out
+}
+
+/**
  * Reset the canonicalize service (for tests).
  */
 export function resetCanonicalizeService(): void {
@@ -194,4 +267,5 @@ export function resetCanonicalizeService(): void {
   controlArray = null
   lengthView = null
   dataArea = null
+  canonCache.clear()
 }

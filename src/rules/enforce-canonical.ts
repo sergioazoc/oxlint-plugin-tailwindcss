@@ -1,6 +1,7 @@
 import { defineRule } from '@oxlint/plugins'
 import { createExtractorVisitors, preserveSpaces, type ClassLocation } from '../utils/extractors'
 import { splitClasses } from '../utils/class-splitter'
+import { utilityHasDynamicValue } from '../utils/class-parser'
 import { createLazyLoader, rootFontSizeFromSettings } from '../design-system/loader'
 import { canonicalizeClassesSync } from '../design-system/canonicalize-service'
 import { safeSettings } from '../types'
@@ -72,18 +73,42 @@ export const enforceCanonical = defineRule({
       for (const loc of locations) {
         const classes = splitClasses(loc.value)
 
-        // Try dynamic canonicalization via worker (handles px→named, theme(), var() syntax, etc.)
-        const rem = getRem()
-        const dynamic = canonicalizeClassesSync(entryPoint, classes, rem)
+        // Split the location into two buckets:
+        //   - named classes → precomputed `canonicalMap` is ground truth,
+        //     resolved via `cache.canonicalize` (sync, sub-microsecond).
+        //   - classes with arbitrary/CSS-var values in the utility
+        //     (`p-[2px]`, `bg-(--c)`) → need the async DS to canonicalize,
+        //     routed through the worker.
+        //
+        // Keeping named classes out of the worker call avoids the round-trip
+        // entirely for the majority of locations, and shrinks the payload for
+        // the rest. The local cache preserves `!` position, so no
+        // preserveImportantPosition step is needed on that path.
+        const canonicals: string[] = Array.from({ length: classes.length })
+        const arbitraryIdx: number[] = []
+        const arbitrary: string[] = []
 
-        // Use dynamic results if available, otherwise fall back to precomputed cache
-        let canonicals: string[]
-        if (dynamic) {
-          // Preserve user's ! position — canonicalizeCandidates normalizes to suffix,
-          // but enforce-consistent-important-position handles that separately
-          canonicals = classes.map((cls, i) => preserveImportantPosition(cls, dynamic[i]))
-        } else {
-          canonicals = classes.map((cls) => cache.canonicalize(cls))
+        for (let i = 0; i < classes.length; i++) {
+          if (utilityHasDynamicValue(classes[i])) {
+            arbitraryIdx.push(i)
+            arbitrary.push(classes[i])
+          } else {
+            canonicals[i] = cache.canonicalize(classes[i])
+          }
+        }
+
+        if (arbitrary.length > 0) {
+          const rem = getRem()
+          const dynamic = canonicalizeClassesSync(entryPoint, arbitrary, rem)
+          if (dynamic) {
+            for (let k = 0; k < arbitrary.length; k++) {
+              canonicals[arbitraryIdx[k]] = preserveImportantPosition(arbitrary[k], dynamic[k])
+            }
+          } else {
+            for (let k = 0; k < arbitrary.length; k++) {
+              canonicals[arbitraryIdx[k]] = cache.canonicalize(arbitrary[k])
+            }
+          }
         }
 
         let firstNonCanonical = true
