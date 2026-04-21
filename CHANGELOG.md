@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.2 (2026-04-21)
+
+- **Fix `MaxListenersExceededWarning` when the plugin runs in multiple oxlint worker threads** — The sort and canonicalize services registered `process.on('exit', cleanup)` on every module load. When oxlint spawns many lint workers, this exceeded Node's default `MaxListeners` (10) and emitted a warning. `worker.unref()` already lets the process exit without waiting for the worker, so the exit listener was redundant and has been removed. Regression test added in `tests/design-system/exit-listeners.test.ts`.
+- **Dependencies updated** — @tailwindcss/node 4.2.4, tailwindcss 4.2.4, @oxlint/plugins 1.61.0, oxlint 1.61.0, oxfmt 0.46.0, tsdown 0.21.9, vitest 4.1.5.
+- 736 tests (up from 733).
+
 ## 0.6.1 (2026-04-14)
 
 - **Fix `consistent-variant-order` incorrect reorder for pseudo-elements** ([#12](https://github.com/sergioazoc/oxlint-tailwindcss/issues/12)) — The rule incorrectly moved pseudo-element variants (`before:`, `after:`, `placeholder:`, etc.) before element-selecting variants (arbitrary selectors `[&>svg]:`, `has-[.active]:`, `aria-expanded:`, `data-[state=open]:`, `open:`, etc.), producing broken CSS in Tailwind v4. For example, `[&>*[data-role="user"]]:after:right-0` was "fixed" to `after:[&>*[data-role="user"]]:right-0`, which generates `&::after { &>*[data-role=user] { ... } }` — pseudo-elements have no children. Pseudo-element variants are now always kept innermost (closest to the utility) in both static and design system ordering modes.

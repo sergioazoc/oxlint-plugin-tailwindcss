@@ -124,7 +124,7 @@ function ensureService(cssPath: string): boolean {
       return false
     }
 
-    process.on('exit', cleanup)
+    // `worker.unref()` handles process exit; no exit listener (see exit-listeners.test.ts).
     return true
   } catch {
     available = false
