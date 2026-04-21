@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.3 (2026-04-21)
+
+- **Perf: `enforce-canonical` ~5x faster** — Lint time on an 898-file repo with 12 threads dropped from 106s to 22s. Named classes (no `[` or `(` in the utility) now resolve via the precomputed `canonicalMap` in `DesignSystemCache` instead of going through the worker thread round-trip. Only classes with arbitrary or CSS-var values (`p-[2px]`, `bg-(--c)`) still call the worker. A process-wide per-class cache keyed by `${cssPath}\0${rem}\0${class}` deduplicates the remaining worker requests.
+- **Fix latent bug in the canonicalize worker** — The worker called `ds.canonicalizeCandidates(classes)` in batch, but that API deduplicates its input. Inputs containing duplicate classes produced output shorter than the input and left `dynamic[i]` undefined in `enforce-canonical`. The worker now iterates `canonicalizeCandidates([cls])` per class, preserving order and length.
+- 742 tests (up from 736).
+
 ## 0.6.2 (2026-04-21)
 
 - **Fix `MaxListenersExceededWarning` when the plugin runs in multiple oxlint worker threads** — The sort and canonicalize services registered `process.on('exit', cleanup)` on every module load. When oxlint spawns many lint workers, this exceeded Node's default `MaxListeners` (10) and emitted a warning. `worker.unref()` already lets the process exit without waiting for the worker, so the exit listener was redundant and has been removed. Regression test added in `tests/design-system/exit-listeners.test.ts`.
