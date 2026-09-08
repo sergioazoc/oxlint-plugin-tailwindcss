@@ -34,6 +34,15 @@ const DATA_OFFSET = LENGTH_OFFSET + 4 // 20 bytes
 const INIT_TIMEOUT = 60_000 // 60 s to load DS (raised in v1 to avoid spurious timeouts on slow CI)
 const REQUEST_TIMEOUT = 30_000 // 30 s per request
 
+// Consecutive per-request failures for one cssPath before the error goes sticky.
+// #130 made these failures retryable so a mid-typing arbitrary value could not
+// disable a rule until restart. Retrying without a bound, though, costs the full
+// REQUEST_TIMEOUT again for every later class list once a machine is slow enough
+// to time out at all — on a batch lint that is O(files) x 30 s. The budget keeps
+// a transient failure recoverable while capping the pathological case; any
+// success resets it.
+const MAX_CONSECUTIVE_REQUEST_FAILURES = 3
+
 // LRU bound on live workers (#77). In a monorepo linted in one oxlint run the
 // plugin can resolve several entry points, and oxlint feeds files in
 // nondeterministic order — a singleton worker tore itself down and re-loaded
@@ -138,6 +147,13 @@ export interface DesignSystemWorkerOptions {
   workerScript: string
   /** Human-readable name shown in error messages. */
   serviceName: 'sort' | 'canonicalize' | 'declarations'
+  /** Per-request wait before giving up. Defaults to `REQUEST_TIMEOUT`; overridden in tests. */
+  requestTimeoutMs?: number
+  /**
+   * Consecutive per-request failures for one cssPath before the error becomes
+   * sticky. Defaults to `MAX_CONSECUTIVE_REQUEST_FAILURES`; overridden in tests.
+   */
+  maxConsecutiveRequestFailures?: number
 }
 
 export class DesignSystemWorker<Req, Res> {
@@ -156,6 +172,8 @@ export class DesignSystemWorker<Req, Res> {
   // lastError/lastErrorCssPath pair was cleared on ANY cssPath switch, so it
   // never stayed sticky across the alternating-file pattern #77 describes.
   private errors = new Map<string, SortServiceError>()
+  // Consecutive per-request failures per cssPath, reset by any success.
+  private requestFailures = new Map<string, number>()
 
   constructor(private readonly opts: DesignSystemWorkerOptions) {}
 
@@ -163,6 +181,21 @@ export class DesignSystemWorker<Req, Res> {
   private remember(cssPath: string, err: SortServiceError): SortServiceError {
     this.errors.set(cssPath, err)
     return err
+  }
+
+  /**
+   * Handle a per-request failure: drop the worker so the next call re-spawns and
+   * retries (#130), but stop retrying once the same cssPath has failed
+   * `maxConsecutiveRequestFailures` times in a row. Without that bound a machine
+   * slow enough to time out once pays the full request timeout again for every
+   * remaining class list.
+   */
+  private failRequest(cssPath: string, err: SortServiceError): SortServiceError {
+    this.dropWorker(cssPath)
+    const failures = (this.requestFailures.get(cssPath) ?? 0) + 1
+    this.requestFailures.set(cssPath, failures)
+    const budget = this.opts.maxConsecutiveRequestFailures ?? MAX_CONSECUTIVE_REQUEST_FAILURES
+    return failures >= budget ? this.remember(cssPath, err) : err
   }
 
   /**
@@ -307,19 +340,22 @@ export class DesignSystemWorker<Req, Res> {
     Atomics.store(state.controlArray, 0, 1)
     Atomics.notify(state.controlArray, 0)
 
-    const result = Atomics.wait(state.controlArray, 1, 0, REQUEST_TIMEOUT)
+    const requestTimeout = this.opts.requestTimeoutMs ?? REQUEST_TIMEOUT
+    const result = Atomics.wait(state.controlArray, 1, 0, requestTimeout)
     if (result === 'timed-out') {
       // Per-request failure (#130): drop the worker so the next call re-spawns
-      // and retries, but do NOT remember() it as sticky. A request-level failure
-      // is a property of one input, not of the entry point — making it sticky
-      // (as init failures are) let one malformed/transient input permanently
-      // disable the rule for the whole cssPath until the process restarted.
-      // Mirrors the already-non-sticky "payload too large" branch above.
-      this.dropWorker(cssPath)
-      throw new SortServiceError(
-        `${this.opts.serviceName} worker request timed out after ${REQUEST_TIMEOUT}ms.`,
-        // Fixed internal limit, not settings.tailwindcss.timeout.
-        'This is unexpected for typical class lists; please open an issue if it persists.',
+      // and retries, rather than remembering it as sticky straight away. A
+      // request-level failure is a property of one input, not of the entry
+      // point — making it sticky immediately (as init failures are) let one
+      // malformed/transient input permanently disable the rule for the whole
+      // cssPath until the process restarted. `failRequest` bounds the retrying.
+      throw this.failRequest(
+        cssPath,
+        new SortServiceError(
+          `${this.opts.serviceName} worker request timed out after ${requestTimeout}ms.`,
+          // Fixed internal limit, not settings.tailwindcss.timeout.
+          'This is unexpected for typical class lists; please open an issue if it persists.',
+        ),
       )
     }
 
@@ -331,27 +367,35 @@ export class DesignSystemWorker<Req, Res> {
     try {
       parsed = JSON.parse(responseStr)
     } catch (cause) {
-      // Per-request failure (#130): drop-and-retry, not sticky. See the
+      // Per-request failure (#130): drop-and-retry, bounded. See the
       // request-timeout branch above for the rationale.
-      this.dropWorker(cssPath)
-      throw new SortServiceError(
-        `${this.opts.serviceName} worker returned non-JSON response.`,
-        'This is a bug; please open an issue.',
-        { cause: cause instanceof Error ? cause : undefined },
+      throw this.failRequest(
+        cssPath,
+        new SortServiceError(
+          `${this.opts.serviceName} worker returned non-JSON response.`,
+          'This is a bug; please open an issue.',
+          { cause: cause instanceof Error ? cause : undefined },
+        ),
       )
     }
 
     if (parsed === null) {
-      // Per-request failure (#130): drop-and-retry, not sticky. After the
-      // handler guards land, the only realistic cause here is an oversized
-      // response (the response-side twin of "payload too large"), so a later
-      // request with different input must be free to succeed, not rethrow.
-      this.dropWorker(cssPath)
-      throw new SortServiceError(
-        `${this.opts.serviceName} worker returned null — the request body was rejected or its response did not fit the buffer.`,
-        'This is a bug; please open an issue with the input that triggered it.',
+      // Per-request failure (#130): drop-and-retry, bounded. After the handler
+      // guards land, the only realistic cause here is an oversized response (the
+      // response-side twin of "payload too large"), so a later request with
+      // different input must be free to succeed, not rethrow.
+      throw this.failRequest(
+        cssPath,
+        new SortServiceError(
+          `${this.opts.serviceName} worker returned null — the request body was rejected or its response did not fit the buffer.`,
+          'This is a bug; please open an issue with the input that triggered it.',
+        ),
       )
     }
+
+    // A success clears the budget, so unrelated failures spread across a long
+    // run never accumulate into a sticky error.
+    this.requestFailures.delete(cssPath)
 
     return parsed as Res
   }
@@ -360,6 +404,7 @@ export class DesignSystemWorker<Req, Res> {
     for (const state of this.workers.values()) this.terminateWorker(state.worker)
     this.workers.clear()
     this.errors.clear()
+    this.requestFailures.clear()
   }
 
   /** Terminate and forget the worker for a single cssPath (on request failure). */

@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.10.3
+
+1.10.2 made per-**request** worker failures retryable rather than sticky, so a malformed or
+mid-typing arbitrary value could no longer disable a rule until the process restarted
+([#130](https://github.com/sergioazoc/oxlint-tailwindcss/issues/130)). Retrying was left unbounded,
+though, and a request timeout is not usually a property of one input — a machine slow enough to time
+out one request times out the next as well. Each retry then waits the full 30 s again, so a batch
+lint pays it once per remaining class list instead of once. On CI that reads as the job hanging: a
+studyguide-ui lint went from 86 s to 601 s and was killed by the runner's 10-minute no-output limit,
+and a studyplanner-fe lint took 527 s for 15 reported timeouts.
+
+### Bug fixes
+
+- **A per-request worker failure is still retried, but no longer forever.** After
+  `maxConsecutiveRequestFailures` (default 3) consecutive failures for one entry point the error
+  becomes sticky, so the remaining calls fail immediately instead of each paying the request timeout
+  again. Any successful request resets the count, so unrelated failures spread across a long run
+  never accumulate. #130's behaviour is unchanged for the case it was about: a single transient or
+  malformed input still recovers on the next call.
+
 ## 1.10.2
 
 Typing an **incomplete** arbitrary value in a `className` (e.g. `px-[calc(var(--a)+var(--b)+)]`, a

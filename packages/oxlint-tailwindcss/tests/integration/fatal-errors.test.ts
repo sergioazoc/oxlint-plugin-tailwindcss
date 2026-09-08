@@ -194,6 +194,64 @@ describe('per-request worker failure — retryable, not sticky (#130)', () => {
 })
 
 /**
+ * Retrying per-request failures (#130) must be bounded. A machine slow enough to
+ * time out one request will time out the next as well, and each retry waits the
+ * full request timeout again — on a batch lint that is O(files) x 30 s, which is
+ * enough to exhaust a CI step's no-output limit. After the budget the error goes
+ * sticky, so the remaining calls fail immediately instead of each paying the
+ * timeout; any success in between clears the budget.
+ */
+describe('per-request failures are retried, but not forever', () => {
+  const CSS = resolve(__dirname, '../fixtures/default.css')
+  let worker: DesignSystemWorker<unknown, unknown> | null = null
+
+  afterEach(() => {
+    worker?.reset()
+    worker = null
+  })
+
+  test('stops paying the request timeout once the budget is spent', () => {
+    // A handler that never replies, so every request hits the timeout.
+    worker = new DesignSystemWorker({
+      workerScript: makeWorkerScript('(ds, req) => { while (true) {} }'),
+      serviceName: 'canonicalize',
+      requestTimeoutMs: 50,
+      maxConsecutiveRequestFailures: 3,
+    })
+
+    for (let i = 0; i < 3; i++) {
+      expect(() => worker!.callSync(CSS, ['flex'])).toThrow(/timed out after 50ms/)
+    }
+
+    // Budget spent: this must return immediately rather than wait out another
+    // timeout. Before the bound, every later call paid the full 50 ms again.
+    const startedAt = Date.now()
+    expect(() => worker!.callSync(CSS, ['flex'])).toThrow(SortServiceError)
+    expect(Date.now() - startedAt).toBeLessThan(50)
+  })
+
+  test('a success between failures clears the budget', () => {
+    // Times out only on the sentinel, so a valid call in between succeeds.
+    worker = new DesignSystemWorker({
+      workerScript: makeWorkerScript(
+        "(ds, req) => { if (req === '__HANG__') { while (true) {} } return req; }",
+      ),
+      serviceName: 'canonicalize',
+      requestTimeoutMs: 50,
+      maxConsecutiveRequestFailures: 2,
+    })
+
+    expect(() => worker!.callSync(CSS, '__HANG__')).toThrow(SortServiceError)
+    expect(worker!.callSync(CSS, ['flex', 'p-2'])).toEqual(['flex', 'p-2'])
+
+    // The success reset the count, so this failure is the first of a new run and
+    // the next valid call still works — the error never went sticky.
+    expect(() => worker!.callSync(CSS, '__HANG__')).toThrow(SortServiceError)
+    expect(worker!.callSync(CSS, ['flex'])).toEqual(['flex'])
+  })
+})
+
+/**
  * Issue #130 (RC1). Each worker handler's risky `ds.*` call is guarded so a
  * Tailwind parser throw on a malformed arbitrary value degrades to a no-op
  * instead of the 'null' sentinel. Tested by evaluating the exact handler string
