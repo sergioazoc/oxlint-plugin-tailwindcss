@@ -1,6 +1,7 @@
 # enforce-consistent-line-wrapping
 
-> Warn when a class string exceeds the configured print width
+> Warn (and optionally autofix) when a class string exceeds the configured print width or
+> classes-per-line budget
 
 ## What this rule does
 
@@ -71,6 +72,12 @@ so the rule surfaces the warning and lets you decide. A template fragment **glue
 no whitespace (`` `${a}flex …` `` — one runtime class) is also never autofixed: any whitespace
 introduced at the boundary would split that class in two.
 
+Around an interpolation, the `"all"` layout puts the class run bordering a `${}` on its **own fresh
+line** (never hanging inline after the expression), so every rewritten line stays within
+`printWidth`. One caveat: the width of the `${…}` expression itself is opaque to the rule, which
+measures each static fragment on its own. So a single physical line you hand-write with a short
+fragment beside a wide interpolation can still exceed `printWidth` without being reported.
+
 `wrapLines` only applies when `classesPerLine` is **not** set — `classesPerLine` owns the layout
 otherwise.
 
@@ -125,6 +132,14 @@ ignored.
 ```jsonc
 { "tailwindcss/enforce-consistent-line-wrapping": ["error", { "classesPerLine": 5 }] }
 ```
+
+### `entryPoint`
+
+`string`, optional.
+
+Per-rule override of `settings.tailwindcss.entryPoint`. The rule consults the design system only for
+the Tailwind v4 project prefix, and only under `wrapLines: "all"` with `group` `"newLine"` or
+`"emptyLine"` (see above); everywhere else it has no effect. Almost never needed.
 
 ## Examples
 

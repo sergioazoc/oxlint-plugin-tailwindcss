@@ -1,7 +1,7 @@
 import { defineRule } from '@oxlint/plugins'
 import { createExtractorVisitors, preserveSpaces, type ClassLocation } from '../utils/extractors'
 import { rebuildClassString, splitClassesWithSeparators } from '../utils/class-splitter'
-import { splitUtilityAndVariant } from '../utils/class-parser'
+import { splitUtilityAndVariant, stripProjectPrefix } from '../utils/class-parser'
 import { createLazyLoader } from '../design-system/loader'
 import { sortClassesSync } from '../design-system/sort-service'
 import { createLazyOptions } from '../utils/context'
@@ -84,8 +84,7 @@ export const enforceSortOrder = defineRule({
         // (`tw:` → '') sorts first and the first REAL variant drives ordering.
         // Without this every prefixed group collapses to first variant `tw`
         // (priority MAX) and the order between groups is unstable.
-        const stripKey = (k: string): string =>
-          cache.prefix && k.startsWith(cache.prefix + ':') ? k.slice(cache.prefix.length + 1) : k
+        const stripKey = (k: string): string => stripProjectPrefix(k, cache.prefix).body
 
         const sortedGroupKeys = [...groups.keys()].sort((ka, kb) => {
           const a = stripKey(ka)

@@ -277,10 +277,10 @@ ruleTester.run(
         filename: 'test.tsx',
         options: [{ printWidth: 20, wrapLines: 'all' }],
       },
-      // Fragment adjacent to `${}` already in the canonical hanging layout:
-      // the preserved leading space must not read as "inconsistent".
+      // Fragment adjacent to `${}` already in the canonical block layout: the
+      // run after the `${}` starts on its own fresh line, so it is a fixpoint.
       {
-        code: 'const className = `${base} flex items-center gap-2\n  hover:bg-red-500 hover:underline`',
+        code: 'const className = `${base}\n  flex items-center gap-2\n  hover:bg-red-500 hover:underline\n`',
         filename: 'test.tsx',
         options: [{ printWidth: 40, wrapLines: 'all' }],
       },
@@ -315,15 +315,15 @@ ruleTester.run(
         errors: [{ messageId: 'inconsistentWrapping' }],
         output: 'const className = `\n  flex\n  hover:underline\n  items-center\n`',
       },
-      // Fragment adjacent to `${}`: hanging join (no leading/trailing
-      // newline), one character reserved for the preserved leading space.
+      // Fragment adjacent to `${}`: the run after the interpolation starts on
+      // its own fresh interior-indented line (block form), not hanging inline.
       {
         code: 'const className = `${base} flex items-center gap-2 hover:bg-red-500 hover:underline`',
         filename: 'test.tsx',
         options: [{ printWidth: 40, wrapLines: 'all' }],
         errors: [{ messageId: 'tooLong' }],
         output:
-          'const className = `${base} flex items-center gap-2\n  hover:bg-red-500 hover:underline`',
+          'const className = `${base}\n  flex items-center gap-2\n  hover:bg-red-500 hover:underline\n`',
       },
       // Nested JSX: base indent derived from the source line, and the indent
       // counts against the width budget when packing.
@@ -378,15 +378,15 @@ ruleTester.run('enforce-consistent-line-wrapping (group option)', enforceConsist
       output:
         'const className = `\n  flex items-center gap-2\n\n  hover:bg-red-500 hover:underline\n\n  focus:outline-none\n`',
     },
-    // emptyLine: hanging fragment after a `${}` — the blank separator works
-    // in the hanging join too.
+    // emptyLine: fragment after a `${}` — block form, with a blank line
+    // separating the base run from the hover run.
     {
       code: 'const className = `${base} flex items-center gap-2 hover:bg-red-500 hover:underline`',
       filename: 'test.tsx',
       options: [{ printWidth: 40, wrapLines: 'all', group: 'emptyLine' }],
       errors: [{ messageId: 'tooLong' }],
       output:
-        'const className = `${base} flex items-center gap-2\n\n  hover:bg-red-500 hover:underline`',
+        'const className = `${base}\n  flex items-center gap-2\n\n  hover:bg-red-500 hover:underline\n`',
     },
     // never: the same input the newLine layout splits into four run-per-line
     // lines packs greedily into two.
@@ -430,15 +430,17 @@ ruleTester.run(
     ],
     invalid: [
       // The leading quasi's line exceeds the budget: it re-wraps as a block
-      // (leading newline preserved), NOT as a hanging join glued onto the
-      // `const className = \`` line.
+      // (leading newline preserved), NOT glued onto the `const className = \``
+      // line. The trailing quasi (`px-6 …`) already fits and — sharing the
+      // template's base indent — is a fixpoint, so ONLY the leading quasi
+      // reports.
       {
         code: 'const className = `\n  flex items-center justify-between gap-4 rounded-lg\n  ${cond}\n  px-6 py-3 shadow-md\n`',
         filename: 'test.tsx',
         options: [{ printWidth: 40, wrapLines: 'all' }],
-        errors: [{ messageId: 'tooLong' }, { messageId: 'inconsistentWrapping' }],
+        errors: [{ messageId: 'tooLong' }],
         output:
-          'const className = `\n  flex items-center justify-between\n  gap-4 rounded-lg\n  ${cond} px-6 py-3 shadow-md`',
+          'const className = `\n  flex items-center justify-between\n  gap-4 rounded-lg\n  ${cond}\n  px-6 py-3 shadow-md\n`',
       },
     ],
   },
@@ -515,15 +517,15 @@ ruleTester.run(
         output:
           'function C() {\n\treturn <div className={`\n\t  flex items-center justify-between\n\t  gap-2 p-4\n\t`} />\n}',
       },
-      // Quasi with `${}` on BOTH sides: hanging join, one character reserved
-      // on each side for the preserved spaces.
+      // Quasi with `${}` on BOTH sides: block form — the run starts on its own
+      // fresh line and the trailing `${b}` lands on the closing indented line.
       {
         code: 'const className = `${a} flex items-center justify-between gap-2 rounded-lg p-4 ${b} m-2`',
         filename: 'test.tsx',
         options: [{ printWidth: 40, wrapLines: 'all' }],
         errors: [{ messageId: 'tooLong' }],
         output:
-          'const className = `${a} flex items-center justify-between\n  gap-2 rounded-lg p-4 ${b} m-2`',
+          'const className = `${a}\n  flex items-center justify-between\n  gap-2 rounded-lg p-4\n  ${b} m-2`',
       },
       // A quasi GLUED to a `${}` (no whitespace at the boundary): `${a}flex`
       // is ONE runtime class, so the fixer must never introduce whitespace
@@ -590,15 +592,15 @@ ruleTester.run(
         output:
           'function C() {\n\treturn <div className={`\n\t  flex items-center justify-between\n\t  gap-2 p-4\n\t`} />\n}',
       },
-      // Quasi with `${}` on BOTH sides: hanging form, one character reserved
-      // on each side for the preserved spaces.
+      // Quasi with `${}` on BOTH sides: single-line block conversion — the run
+      // starts on a fresh line and the trailing `${b}` lands on the closing line.
       {
         code: 'const className = `${a} flex items-center justify-between gap-2 rounded-lg p-4 ${b} m-2`',
         filename: 'test.tsx',
         options: [{ printWidth: 40, wrapLines: 'overWidth' }],
         errors: [{ messageId: 'tooLong' }],
         output:
-          'const className = `${a} flex items-center justify-between\n  gap-2 rounded-lg p-4 ${b} m-2`',
+          'const className = `${a}\n  flex items-center justify-between\n  gap-2 rounded-lg p-4\n  ${b} m-2`',
       },
       // Single-line LEADING quasi (before the first `${}`): block form with
       // the `${}` on its own interior-indented line, never a hanging join
@@ -617,6 +619,72 @@ ruleTester.run(
         filename: 'test.tsx',
         options: [{ printWidth: 40, wrapLines: 'overWidth' }],
         errors: [{ messageId: 'tooLong' }],
+      },
+    ],
+  },
+)
+
+// The `glued`-quasi guard covers BOTH sides and BOTH fixers: a class fused to a
+// `${}` is one runtime token, so no fixer may inject whitespace at the boundary.
+ruleTester.run(
+  'enforce-consistent-line-wrapping (glued quasi is never split)',
+  enforceConsistentLineWrapping,
+  {
+    valid: [],
+    invalid: [
+      // TRAILING-glued (`…rounded-lg${a}`): the last class fuses with the `${}`.
+      // Warn-only under 'all' — the width branch's `!glued` gate skips the fix.
+      {
+        code: 'const className = `flex items-center gap-2 p-4 m-2 bg-white text-black rounded-lg${a}`',
+        filename: 'test.tsx',
+        options: [{ printWidth: 40, wrapLines: 'all' }],
+        errors: [{ messageId: 'tooLong' }],
+      },
+      // Trailing-glued under 'overWidth' too.
+      {
+        code: 'const className = `flex items-center gap-2 p-4 m-2 bg-white text-black rounded-lg${a}`',
+        filename: 'test.tsx',
+        options: [{ printWidth: 40, wrapLines: 'overWidth' }],
+        errors: [{ messageId: 'tooLong' }],
+      },
+      // classesPerLine + leading-glued (`${a}flex`): `${a}flex` is ONE runtime
+      // class, so the per-line fixer is warn-only here — without the `!glued`
+      // gate, preserveSpaces would rewrite it to `${a} flex` and split it.
+      {
+        code: 'const className = `${a}flex md:block`',
+        filename: 'test.tsx',
+        options: [{ classesPerLine: 1 }],
+        errors: [{ messageId: 'tooManyPerLine' }],
+      },
+    ],
+  },
+)
+
+// Multi-`${}` templates derive ONE base indent from the opening backtick line
+// (issue 3882024707 part 1) so wrapping is consistent across every quasi and
+// idempotent in a single pass — no staircase.
+ruleTester.run(
+  'enforce-consistent-line-wrapping (multi-`${}` no staircase)',
+  enforceConsistentLineWrapping,
+  {
+    valid: [
+      // Both quasis wrap at the SAME interior indent — a stable fixpoint.
+      {
+        code: 'const className = `${a}\n  flex items-center gap-2\n  ${b}\n  hover:bg-red-500 hover:underline\n`',
+        filename: 'test.tsx',
+        options: [{ printWidth: 40, wrapLines: 'all' }],
+      },
+    ],
+    invalid: [
+      // A trailing quasi staircased one level deeper than the first is
+      // normalized BACK to the shared base indent, not pushed deeper still.
+      {
+        code: 'const className = `${a}\n  flex items-center gap-2\n  ${b}\n    hover:bg-red-500 hover:underline\n`',
+        filename: 'test.tsx',
+        options: [{ printWidth: 40, wrapLines: 'all' }],
+        errors: [{ messageId: 'inconsistentWrapping' }],
+        output:
+          'const className = `${a}\n  flex items-center gap-2\n  ${b}\n  hover:bg-red-500 hover:underline\n`',
       },
     ],
   },

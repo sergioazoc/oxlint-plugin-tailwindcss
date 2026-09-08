@@ -105,6 +105,23 @@ export function splitUtilityAndVariant(cls: string): { utility: string; variant:
 }
 
 /**
+ * Strips a Tailwind v4 project prefix (`@import "tailwindcss" prefix(tw)` → `tw`)
+ * off a class, returning the matched prefix marker (`"tw:"`, or `""`) and the
+ * remaining body. The project prefix is structurally a variant but pinned FIRST
+ * (`tw:hover:flex`, never `hover:tw:flex`), so grouping/ordering rules strip it
+ * before reading the real variant chain — the prefix invariant shared by
+ * enforce-sort-order, consistent-variant-order and enforce-consistent-line-wrapping.
+ * `prefix === ""` (no project prefix / no design system) or a non-matching class
+ * passes through untouched.
+ */
+export function stripProjectPrefix(cls: string, prefix: string): { prefix: string; body: string } {
+  if (prefix !== '' && cls.startsWith(prefix + ':')) {
+    return { prefix: prefix + ':', body: cls.slice(prefix.length + 1) }
+  }
+  return { prefix: '', body: cls }
+}
+
+/**
  * Checks if a class has an arbitrary value (bracket syntax in the utility part).
  * Distinguishes from arbitrary variants: [&>svg]:w-4 does NOT have an arbitrary value,
  * but w-[200px] does.

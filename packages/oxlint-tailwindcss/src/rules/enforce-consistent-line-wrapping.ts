@@ -2,7 +2,7 @@ import { defineRule } from '@oxlint/plugins'
 import { createExtractorVisitors, preserveSpaces, type ClassLocation } from '../utils/extractors'
 import { splitClasses } from '../utils/class-splitter'
 import { createLazyOptions, safeSourceCode } from '../utils/context'
-import { getVariantPrefix } from '../utils/class-parser'
+import { getVariantPrefix, stripProjectPrefix } from '../utils/class-parser'
 import { createLazyLoader } from '../design-system/loader'
 import { softGetDS } from '../utils/fatal'
 
@@ -16,15 +16,18 @@ import { softGetDS } from '../utils/fatal'
  * directly before it, `preserveTrailingSpace` that one sits directly after.
  *
  * The fixers wrap a quasi according to what borders it:
- *  - opening backtick before it (whole template, or a leading quasi):
- *    BLOCK form — classes move onto their own indented lines below the
- *    backtick;
- *  - `${}` before it: HANGING form — the first packed line stays beside the
- *    interpolation, continuation lines are indented below it;
+ *  - the WIDTH fixer (`wrapLines`) always uses BLOCK form — every class run
+ *    moves onto its own indented line below the backtick, INCLUDING a quasi
+ *    that follows a `${}` (it starts on a fresh line rather than hanging
+ *    inline). Nothing ever shares a physical row with the opaque `${expr}`,
+ *    so no emitted line can exceed `printWidth`;
+ *  - the `classesPerLine` fixer uses BLOCK form for a standalone quasi but a
+ *    HANGING join for a fragment adjacent to a `${}` (the first chunk stays
+ *    beside the interpolation, continuation chunks indented below it);
  *  - GLUED to a `${}` (no whitespace at the boundary, as in `${a}flex`):
- *    never autofixed, warn-only — the quasi text concatenates with the
- *    interpolation into ONE runtime class, so inserting whitespace at the
- *    boundary would split that class in two.
+ *    never autofixed by EITHER fixer, warn-only — the quasi text concatenates
+ *    with the interpolation into ONE runtime class, so inserting whitespace at
+ *    the boundary would split that class in two.
  */
 
 /**
@@ -100,8 +103,7 @@ function packToWidth(classes: string[], indent: string, width: number): string[]
  * prefix. Grouping only: emitted classes are never rewritten.
  */
 function groupingKey(cls: string, prefix: string): string {
-  const bare = prefix !== '' && cls.startsWith(prefix + ':') ? cls.slice(prefix.length + 1) : cls
-  return getVariantPrefix(bare)
+  return getVariantPrefix(stripProjectPrefix(cls, prefix).body)
 }
 
 /**
@@ -152,7 +154,8 @@ export const enforceConsistentLineWrapping = defineRule({
   meta: {
     type: 'suggestion',
     docs: {
-      description: 'Warn when a class string exceeds the configured print width',
+      description:
+        'Warn (and optionally autofix) when a class string exceeds the configured print width or classes-per-line budget',
     },
     fixable: 'whitespace',
     schema: [
@@ -208,7 +211,10 @@ export const enforceConsistentLineWrapping = defineRule({
      */
     function deriveBaseIndent(loc: ClassLocation): string {
       const sc = safeSourceCode(context)
-      const line = loc.node.loc?.start.line
+      // Anchor on the enclosing template's opening backtick line (shared by all
+      // its quasis) so a multi-`${}` template derives ONE base indent instead of
+      // staircasing — each quasi's own source line drifts deeper after wrapping.
+      const line = loc.templateLine ?? loc.node.loc?.start.line
       if (sc?.lines && typeof line === 'number' && line >= 1 && line <= sc.lines.length) {
         const src = sc.lines[line - 1] ?? ''
         const m = /^[ \t]*/.exec(src)
@@ -256,9 +262,22 @@ export const enforceConsistentLineWrapping = defineRule({
     /**
      * `wrapLines: 'all'` fixer (also the single-line conversion for
      * 'overWidth', which passes `group: 'never'`): the WHOLE quasi is
-     * re-laid-out into lines packed to `printWidth` per the `group` mode,
-     * in the block or hanging form its position dictates (see the quasi
-     * note at the top of the file).
+     * re-laid-out into `printWidth`-packed lines per the `group` mode, in the
+     * BLOCK form regardless of position — every class run lands on its own
+     * indented line below the backtick.
+     *
+     * A quasi that follows a `${}` (`preserveLeadingSpace`) starts on its own
+     * fresh interior-indented line rather than hanging inline after the
+     * interpolation, and a `${}` that follows the quasi
+     * (`preserveTrailingSpace`) lands alone on the closing interior-indented
+     * line. So no emitted line ever shares its physical row with the opaque
+     * `${expr}`, and every line stays within `printWidth` — bounding the
+     * hanging-join over-width case that per-quasi measurement cannot re-detect.
+     *
+     * The returned value BEGINS with `\n` and ENDS with indentation, so the
+     * newlines already separate it from any bordering `${}`: it must NOT be run
+     * through `preserveSpaces`, which would prepend a stray space before the
+     * leading `\n`.
      */
     function rewrapTemplateToWidth(
       loc: ClassLocation,
@@ -270,33 +289,12 @@ export const enforceConsistentLineWrapping = defineRule({
       const interiorIndent = baseIndent + INDENT_UNIT
       const classes = splitClasses(loc.value)
       if (classes.length === 0) return loc.value
-      if (!loc.preserveLeadingSpace) {
-        // Block form. Keyed off `preserveLeadingSpace` ALONE: a leading quasi
-        // must not take the hanging form below — its first line would land on
-        // the code before the backtick, over-width in the source yet
-        // invisible to the per-quasi line measurement. A `${}` after the
-        // quasi goes on its own interior-indented line.
-        const packed = packGroupedToWidth(classes, interiorIndent, printWidth, group, prefix)
-        const close = loc.preserveTrailingSpace ? interiorIndent : baseIndent
-        // `''` entries (blank group separators) take no indent.
-        return (
-          '\n' + packed.map((c) => (c === '' ? c : interiorIndent + c)).join('\n') + '\n' + close
-        )
-      }
-      // Hanging form. One character is reserved per bordering `${}` for the
-      // boundary space `preserveSpaces` re-adds after packing — without the
-      // reserve a line packed to exactly `printWidth` lands at
-      // `printWidth + 1` and the fix never converges.
-      const trailingReserve = loc.preserveTrailingSpace ? 1 : 0
-      return packGroupedToWidth(
-        classes,
-        interiorIndent,
-        printWidth - 1 - trailingReserve,
-        group,
-        prefix,
-      )
-        .map((c, i) => (i === 0 || c === '' ? c : interiorIndent + c))
-        .join('\n')
+      const packed = packGroupedToWidth(classes, interiorIndent, printWidth, group, prefix)
+      // A following `${}` sits on the closing interior-indented line; otherwise
+      // the closing backtick aligns with the statement's base indent.
+      const close = loc.preserveTrailingSpace ? interiorIndent : baseIndent
+      // `''` entries (blank group separators) take no indent.
+      return '\n' + packed.map((c) => (c === '' ? c : interiorIndent + c)).join('\n') + '\n' + close
     }
 
     /**
@@ -312,7 +310,10 @@ export const enforceConsistentLineWrapping = defineRule({
       const lines = loc.value.split('\n')
       if (lines.length === 1) {
         // group 'never' does no grouping, so the prefix is irrelevant.
-        return preserveSpaces(loc, rewrapTemplateToWidth(loc, printWidth, 'never', ''))
+        // rewrapTemplateToWidth returns the final block value (leading `\n`,
+        // boundary spacing handled by newlines) — never run it through
+        // preserveSpaces.
+        return rewrapTemplateToWidth(loc, printWidth, 'never', '')
       }
       const interiorIndent = deriveBaseIndent(loc) + INDENT_UNIT
       // Reserve for the boundary space before a `${}` after the quasi,
@@ -381,14 +382,15 @@ export const enforceConsistentLineWrapping = defineRule({
           !glued &&
           (maxLine > printWidth || (wrapLines === 'all' && isMultiline))
         ) {
-          // Compare the FINAL value (boundary spaces included), or an
-          // already-canonical quasi re-reports with a no-op fix. Equal values
-          // need no warn-only fallback: at a fixed point of either fixer
-          // every multi-class line fits the budget, and over-budget
+          // Both fixers return their FINAL value (block form begins with `\n`
+          // and handles `${}` boundaries via newlines, so neither is run
+          // through `preserveSpaces`), or an already-canonical quasi re-reports
+          // with a no-op fix. Equal values need no warn-only fallback: at a
+          // fixed point every multi-class line fits the budget, and over-budget
           // single-class lines were already excluded from `maxLine`.
           const fixedValue =
             wrapLines === 'all'
-              ? preserveSpaces(loc, rewrapTemplateToWidth(loc, printWidth, group, prefix))
+              ? rewrapTemplateToWidth(loc, printWidth, group, prefix)
               : rewrapOverBudgetLinesToWidth(loc, printWidth)
           if (fixedValue !== loc.value) {
             context.report({
@@ -416,7 +418,10 @@ export const enforceConsistentLineWrapping = defineRule({
 
           if (maxPerLine > classesPerLine) {
             const data = { count: String(maxPerLine), max: String(classesPerLine) }
-            if (loc.node.type === 'TemplateElement') {
+            // Warn-only for a glued quasi (`${a}flex`): `preserveSpaces` would
+            // inject a boundary space and split the one runtime class in two,
+            // the same corruption the width fixer's `!glued` guard prevents.
+            if (loc.node.type === 'TemplateElement' && !glued) {
               const fixedValue = rewrapTemplate(loc, lines, classesPerLine)
               context.report({
                 node: loc.node,
