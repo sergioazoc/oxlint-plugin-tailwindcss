@@ -25,8 +25,11 @@ autofix for template literals — **off by default and opt-in via the new `wrapL
     `inconsistentWrapping`.
 
   In both modes class **order is never changed** — the fixer only chooses where the line breaks go.
-  Template fragments glued to a `${}` with no whitespace (`` `${a}flex …` `` — one runtime class)
-  are never autofixed: introducing whitespace at the boundary would split the class in two.
+  Under `"all"`, a class run that borders a `${}` interpolation starts on its own fresh line rather
+  than hanging inline after the expression, so no rewritten line exceeds `printWidth` (the width of
+  the `${…}` expression itself stays opaque to the rule). Template fragments glued to a `${}` with
+  no whitespace (`` `${a}flex …` `` — one runtime class) are never autofixed: introducing whitespace
+  at the boundary would split the class in two.
 
 - **`enforce-consistent-line-wrapping`: new `group` option** (`"newLine" | "emptyLine" | "never"`,
   default `"newLine"`), controlling how the `wrapLines: "all"` layout separates variant groups. It
@@ -52,6 +55,14 @@ autofix for template literals — **off by default and opt-in via the new `wrapL
   the variant chain. It never reports `designSystemUnavailable`, and the design system is only
   consulted for these two specific fixers so no performance penalty is applied to the rule if those
   fixers are not used.
+
+### Fixed
+
+- **`enforce-consistent-line-wrapping`: `classesPerLine` no longer splits a class glued to a `${}`
+  interpolation on `--fix`.** For a template like `` `${a}flex md:block` `` — where `${a}flex` is a
+  single runtime class — the `classesPerLine` fixer is now warn-only, matching the `wrapLines`
+  fixer's `glued`-boundary guard. Previously it inserted a space at the boundary and rewrote the
+  class to `` `${a} flex …` ``, silently splitting it in two.
 
 ## 1.10.2
 

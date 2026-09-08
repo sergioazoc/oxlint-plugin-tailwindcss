@@ -32,6 +32,15 @@ export interface ClassLocation {
   /** Preserve a trailing space (quasi followed by template expression) */
   preserveTrailingSpace?: boolean
   /**
+   * Line of the enclosing template literal's opening backtick, shared by EVERY
+   * quasi of the same template. Lets a fixer derive ONE base indent for the
+   * whole template instead of re-reading each quasi's own (possibly deeper,
+   * post-wrap) source line — which staircases the indentation of multi-`${}`
+   * templates. Optional and additive: only enforce-consistent-line-wrapping
+   * reads it; every other rule ignores it.
+   */
+  templateLine?: number
+  /**
    * Extraction site of this string (issue #117). Optional and purely additive:
    * per-class rules ignore it. Relational rules gate on `jsx-native`.
    */
@@ -646,6 +655,7 @@ function appendFromTemplateLiteral(
         range: [start, start + value.length],
         preserveLeadingSpace: i > 0,
         preserveTrailingSpace: i < node.quasis.length - 1,
+        templateLine: node.loc?.start.line,
       })
     }
   }

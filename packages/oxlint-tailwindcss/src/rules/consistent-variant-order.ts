@@ -6,6 +6,7 @@ import {
   extractUtility,
   isPseudoElementVariant,
   isSelectorBarrier,
+  stripProjectPrefix,
 } from '../utils/class-parser'
 import { createLazyOptions } from '../utils/context'
 import { type VariantFacts } from '../utils/class-parser'
@@ -204,12 +205,7 @@ export const consistentVariantOrder = defineRule({
 
     function reorderClass(cls: string): string | null {
       const { priorityOf, prefix, factsFor } = resolveForFile()
-      let pfx = ''
-      let body = cls
-      if (prefix && cls.startsWith(prefix + ':')) {
-        pfx = prefix + ':'
-        body = cls.slice(prefix.length + 1)
-      }
+      const { prefix: pfx, body } = stripProjectPrefix(cls, prefix)
 
       const variants = extractVariants(body)
       if (variants.length < 2) return null

@@ -1,6 +1,7 @@
 # enforce-consistent-line-wrapping
 
-> Warn when a class string exceeds the configured print width
+> Warn (and optionally autofix) when a class string exceeds the configured print width or
+> classes-per-line budget
 
 ## Qué hace esta regla
 
@@ -73,6 +74,13 @@ wrappearlo), así que la regla saca el warning y te deja decidir. Un fragmento d
 a un `${}` sin whitespace (`` `${a}flex …` `` — una sola clase en runtime) tampoco se autofixea
 nunca: cualquier whitespace introducido en ese borde partiría esa clase en dos.
 
+Alrededor de una interpolación, el layout `"all"` pone el run de clases que bordea un `${}` en su
+**propia línea nueva** (nunca colgando inline después de la expresión), así que toda línea reescrita
+queda dentro de `printWidth`. Una salvedad: el ancho de la expresión `${…}` en sí es opaco para la
+regla, que mide cada fragmento estático por separado. Por eso una sola línea física que escribas a
+mano con un fragmento corto junto a una interpolación ancha puede exceder `printWidth` sin ser
+reportada.
+
 `wrapLines` solo aplica cuando `classesPerLine` **no** está seteado — si no, `classesPerLine` es
 dueño del layout.
 
@@ -127,6 +135,14 @@ ignora.
 ```jsonc
 { "tailwindcss/enforce-consistent-line-wrapping": ["error", { "classesPerLine": 5 }] }
 ```
+
+### `entryPoint`
+
+`string`, opcional.
+
+Override por-regla de `settings.tailwindcss.entryPoint`. La regla consulta el design system solo
+para el prefix de proyecto de Tailwind v4, y solo bajo `wrapLines: "all"` con `group` `"newLine"` o
+`"emptyLine"` (ver arriba); en cualquier otro caso no tiene efecto. Casi nunca hace falta.
 
 ## Ejemplos
 
