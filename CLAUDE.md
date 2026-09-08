@@ -340,7 +340,12 @@ AST visitors: `JSXAttribute`, `CallExpression`, `TaggedTemplateExpression`, `Var
   imported `@theme`/component file invalidates the cache — not just editing the entry. Every read is
   schema-validated (`isPrecomputedData`): a corrupt, truncated, or poisoned file (or a `{}` that
   would otherwise crash `fromPrecomputed`) reads as a miss, is deleted under the lock, and
-  recomputed — never wedges the loader. Content-based caching enables monorepo deduplication.
+  recomputed — never wedges the loader. Content-based caching enables monorepo deduplication. The
+  cache dir honours `OXLINT_TAILWINDCSS_CACHE_DIR` (`resolveCacheDir` in `sync-loader.ts`): when set
+  to a non-empty value it replaces the per-uid default, letting CI/sandboxes pin the cache location
+  and letting the test suite give each `pnpm test` invocation a private dir (see Tests). A dir the
+  plugin creates is still `mode 0o700`; pointing it at a pre-existing world-writable dir re-opens
+  the poisoning vector, so that's the caller's responsibility.
 - **Cold-cache precompute coordination (#24)**: parallel oxlint isolates that all miss the cache for
   the same CSS would each spawn their own precompute worker. `computeWithLock` in `sync-loader.ts`
   gates it behind a `<contentHash>.lock` file (atomic `openSync(..., 'wx')`): the winner runs the
@@ -537,3 +542,20 @@ escape hatches):
 
 Every DS-dependent rule test in v1 declares its `entryPoint` via one of these helpers — there is no
 shared in-memory fallback the suite can rely on accidentally.
+
+**Per-run isolation (concurrent `pnpm test` safety).** The disk cache is a single per-uid dir shared
+by every process on the machine, so two `pnpm test` invocations overlapping (a background run + the
+stop-hook's run, `--repeats`, or an editor running oxlint) used to race on the same cache files and
+flake `canonicalize-persistence` (EISDIR / stale reads). `vitest.config.ts` (and
+`vitest.bench.config.ts`) set `OXLINT_TAILWINDCSS_CACHE_DIR` to a per-invocation dir
+(`oxlint-tw-{test,bench}-cache-<pid>-<ts>`) and forward it to workers via `test.env`, so each run's
+cache is private; `tests/global-setup.ts` removes it at teardown. To avoid the private dir being
+cold every run (the pre-warm would recompute all fixtures — ~3× slower), global-setup keeps a
+persistent, test-only PRECOMPUTE seed dir and copies **only the fixed FIXTURES' `<hash>.json`** in
+at setup / out at teardown (atomic rename, content-addressed). The scope is deliberate: the
+cache-behaviour tests (`content-cache`, `precompute-worker`, `sync-loader`) drive unique-content
+fixtures and assert hit/miss/invalidation, so seeding anything but the shared read-only fixtures
+would leak state between runs and break them. Tests that write to a scratch dir under the repo
+(`.bench-tmp/*`, `fixtures/.worker-*`) suffix the path with `process.pid` for the same reason. Note:
+running **3+** full suites at once still fails, but from CPU oversubscription (worker-service 30 s
+timeouts), not a shared-state race — that is expected, not a bug.

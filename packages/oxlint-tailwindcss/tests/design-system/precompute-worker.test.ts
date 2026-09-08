@@ -24,7 +24,10 @@ import { DesignSystemLoadError } from '../../src/utils/fatal'
 // Each test that wants a cold cache writes unique CSS content (the disk cache is
 // keyed by content hash), so it never collides with another test's artifacts.
 function uniqueCss(tag: string): string {
-  const path = resolve(__dirname, `../fixtures/.worker-${tag}.css`)
+  // `process.pid` keeps the FILE PATH private to this run's worker: content is
+  // already unique per call, but the path was fixed per tag, so two concurrent
+  // `pnpm test` invocations wrote/deleted the same file and raced (ENOENT).
+  const path = resolve(__dirname, `../fixtures/.worker-${process.pid}-${tag}.css`)
   writeFileSync(path, `@import 'tailwindcss';\n/* ${tag} ${Date.now()} ${Math.random()} */\n`)
   rmSync(cacheArtifactPaths(path).json, { force: true })
   return path
