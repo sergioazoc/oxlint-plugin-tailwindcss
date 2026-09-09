@@ -30,6 +30,18 @@ ruleTester.run('no-contradicting-variants', noContradictingVariants, {
     // Child/descendant selectors target different elements
     { code: '<div className="flex *:data-[slot=select-value]:flex" />', filename: 'test.tsx' },
     { code: '<div className="flex *:[span]:last:flex" />', filename: 'test.tsx' },
+    // Responsive reset (issue #150): a sibling overrides `display` between the
+    // base and the repeated utility, so the repeat is load-bearing. The static
+    // `display`/`visibility` fallback covers these without an entry point.
+    { code: '<div className="block md:hidden lg:block" />', filename: 'test.tsx' },
+    { code: '<div className="flex md:hidden lg:flex" />', filename: 'test.tsx' },
+    { code: '<div className="grid md:hidden lg:grid" />', filename: 'test.tsx' },
+    { code: '<div className="visible md:invisible lg:visible" />', filename: 'test.tsx' },
+    // Multi-breakpoint: `lg:flex` resets after `md:hidden`; `xl:hidden` has no
+    // base counterpart so it is never a candidate.
+    { code: '<div className="flex md:hidden lg:flex xl:hidden" />', filename: 'test.tsx' },
+    // Different utilities, no base match — not reported today; lock it in.
+    { code: '<div className="hidden md:block" />', filename: 'test.tsx' },
     // Composition guard (issue #117): "base + variant:same-utility is redundant"
     // only holds for the element's FINAL class list. In a `cn`/`twMerge`
     // fragment or a custom component's `className`, the variant is often
@@ -68,6 +80,20 @@ ruleTester.run('no-contradicting-variants', noContradictingVariants, {
       code: '<div className="flex hover:flex dark:flex" />',
       filename: 'test.tsx',
       errors: [{ messageId: 'redundantVariant' }, { messageId: 'redundantVariant' }],
+    },
+    // The responsive-reset guard must NOT over-suppress: the sibling
+    // (`md:items-center`) touches a different property, so `dark:flex` is still
+    // redundant against the unconditional `flex`.
+    {
+      code: '<div className="flex md:items-center dark:flex" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'redundantVariant' }],
+    },
+    // Single display utility, no overriding sibling — genuine redundancy.
+    {
+      code: '<div className="block hover:block" />',
+      filename: 'test.tsx',
+      errors: [{ messageId: 'redundantVariant' }],
     },
   ],
 })

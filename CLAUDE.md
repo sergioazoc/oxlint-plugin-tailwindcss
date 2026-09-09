@@ -160,10 +160,17 @@ Core sync/async bridge: `@tailwindcss/node`'s `__unstable__loadDesignSystem` is 
 DS-dependent rules: `no-unknown-classes`, `no-conflicting-classes`, `enforce-canonical`,
 `enforce-sort-order`, `no-unnecessary-arbitrary-value`, `prefer-theme-tokens`.
 `consistent-variant-order`, `no-contradicting-variants`, and `enforce-consistent-line-wrapping` are
-the DS-optional rules: their static fallbacks (variant order, the pseudo-element/barrier name lists,
-and prefix-unaware variant-run grouping respectively) are themselves deterministic, so a missing
-entryPoint is tolerated silently — none may ever emit `designSystemUnavailable`.
-`enforce-consistent-line-wrapping` consults the DS ONLY for the project prefix (so
+the DS-optional rules: their static fallbacks (variant order; the pseudo-element/barrier name lists
+plus the `display`/`visibility` property groups; and prefix-unaware variant-run grouping
+respectively) are themselves deterministic, so a missing entryPoint is tolerated silently — none may
+ever emit `designSystemUnavailable`. `no-contradicting-variants` also runs a **responsive-reset
+guard (#150)**: before flagging `V:util` redundant against an unconditional base `util`, it
+suppresses the report when a sibling with a DIFFERENT utility writes an overlapping CSS property
+(`md:hidden` overriding `display` between `block` and `lg:block`) — that variant is load-bearing,
+not redundant. Property source is `cache.getCssProperties` with an entryPoint, else the static
+`display`/`visibility` groups; sibling scan skips `changesTarget` variants (other box) and
+same-utility siblings (same value). Strictly report-reducing, so it can never introduce a new false
+positive. `enforce-consistent-line-wrapping` consults the DS ONLY for the project prefix (so
 `wrapLines: 'all'` grouping treats `tw:` as transparent, matching the prefix invariant); everything
 else it does is DS-free. `no-deprecated-classes` is DS-independent outright (guard removed in #69):
 it consults only the hardcoded `DEPRECATED_MAP`, so it never loads the design system and never emits

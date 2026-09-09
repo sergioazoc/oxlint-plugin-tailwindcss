@@ -21,6 +21,15 @@ behaves exactly as before — it never reports a missing design system.
 The match is by exact utility identity, so `bg-white hover:bg-blue-500` is left alone (different
 values), as is `flex hover:items-center` (different utilities).
 
+"The base applies unconditionally" only holds when nothing else overrides its property. A responsive
+class that re-establishes a property an intermediate breakpoint took away is **load-bearing**, not
+redundant: in `block md:hidden lg:block` the base is `block`, but `md:hidden` sets `display: none`
+from `md` up, and `lg:block` restores `display: block` from `lg` up — removing it leaves the element
+hidden on large screens. The rule detects this and stays quiet when a sibling with a _different_
+utility writes an overlapping CSS property. Without an entry point this covers the closed `display`
+and `visibility` groups; with one configured it uses the properties the design system actually
+reports, so it extends to every property (`text-align`, `position`, project-defined utilities, …).
+
 ## Options
 
 | Option       | Type     | Default | Description                                             |
@@ -62,6 +71,9 @@ missing design system.
 <div className="absolute after:absolute" />
 <div className="shrink-0 [&>svg]:shrink-0" />
 <div className="flex *:data-[slot=select-value]:flex" />
+
+// Responsive reset — `lg:block` restores `display` after `md:hidden` removed it
+<div className="block md:hidden lg:block" />
 ```
 
 ## Interactions with other rules
