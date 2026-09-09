@@ -1050,7 +1050,31 @@ function cacheDirName(): string {
   }
 }
 
-const CACHE_DIR = join(tmpdir(), cacheDirName())
+/**
+ * The disk-cache directory.
+ *
+ * Defaults to a per-uid dir under the system temp dir (see `cacheDirName`), but
+ * honours `OXLINT_TAILWINDCSS_CACHE_DIR` when set to a non-empty value. Two uses:
+ *   - CI / sandboxed builds that want the cache at a controlled, pruneable
+ *     location instead of the shared system temp dir.
+ *   - The test suite, which points each `pnpm test` invocation at its OWN dir
+ *     (`vitest.config.ts`) so two concurrent runs — a background run and the
+ *     stop-hook's run, or a dev's editor running oxlint alongside the tests —
+ *     never share cache files and race on them (the source of the
+ *     `canonicalize-persistence` EISDIR / stale-read flakes).
+ *
+ * The dir the plugin creates is still `mode 0o700` (see `computeWithLock`), so
+ * an override the plugin creates stays private to its owner; pointing the
+ * override at a pre-existing world-writable dir re-opens the poisoning vector
+ * `cacheDirName` closes, so that is the caller's responsibility.
+ */
+function resolveCacheDir(): string {
+  const override = process.env.OXLINT_TAILWINDCSS_CACHE_DIR
+  if (typeof override === 'string' && override.trim() !== '') return override.trim()
+  return join(tmpdir(), cacheDirName())
+}
+
+const CACHE_DIR = resolveCacheDir()
 
 /**
  * Cache key derived from:

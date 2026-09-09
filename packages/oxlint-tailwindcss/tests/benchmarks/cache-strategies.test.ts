@@ -18,7 +18,7 @@ import { resetDesignSystem } from '../../src/design-system/loader'
 const ENTRY_POINT = resolve(__dirname, '../fixtures/default.css')
 const CACHE_DIR = join(tmpdir(), 'oxlint-tailwindcss')
 const PROJECT_ROOT = resolve(__dirname, '../..')
-const TEMP_DIR = join(PROJECT_ROOT, '.bench-tmp', 'cache-bench')
+const TEMP_DIR = join(PROJECT_ROOT, '.bench-tmp', `cache-bench-${process.pid}`)
 
 const SIMULATED_PACKAGES = ['pkg-web', 'pkg-mobile', 'pkg-admin', 'pkg-shared', 'pkg-docs']
 

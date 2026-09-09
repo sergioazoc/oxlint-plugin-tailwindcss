@@ -13,7 +13,10 @@ import { resetDesignSystem } from '../../src/design-system/loader'
 
 const ENTRY_POINT = resolve(__dirname, '../fixtures/default.css')
 const PROJECT_ROOT = resolve(__dirname, '../..')
-const TEMP_DIR = join(PROJECT_ROOT, '.bench-tmp', 'content-cache')
+// `process.pid` keeps this scratch dir private to this run's worker so two
+// concurrent `pnpm test` invocations don't delete/create each other's files
+// (was a fixed shared path → ENOENT races under concurrency).
+const TEMP_DIR = join(PROJECT_ROOT, '.bench-tmp', `content-cache-${process.pid}`)
 
 const PACKAGES = ['pkg-a', 'pkg-b', 'pkg-c']
 

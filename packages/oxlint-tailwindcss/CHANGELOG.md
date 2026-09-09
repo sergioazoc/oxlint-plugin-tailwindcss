@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.12.0
+
+Maintenance release: dev-toolchain dependency updates plus a new opt-in cache-location override. No
+rule changes behavior.
+
+### New features
+
+- **`OXLINT_TAILWINDCSS_CACHE_DIR` environment variable.** Overrides the design-system disk-cache
+  location (default: a per-uid dir under the system temp dir). Set it to pin the cache at a
+  controlled, pruneable path in CI or sandboxed builds. A directory the plugin creates stays
+  `mode 0o700`; pointing it at a pre-existing world-writable directory re-opens the cache-poisoning
+  vector the per-uid default closes, so that is the caller's responsibility.
+
+### Internal
+
+- Dev-toolchain bumps (no runtime-dependency change): `oxlint`/`@oxlint/plugins` 1.80→1.82, `oxfmt`
+  0.65→0.67, `vitest` 4→5, `tsdown` 0.22→0.23, `@types/node` 26.2→26.5, `vitepress`
+  alpha.19→alpha.20. `tailwindcss`/`@tailwindcss/node` stay at 4.3.3 (latest stable).
+- The test suite is now hermetic across concurrent `pnpm test` invocations: each run gets a private
+  disk-cache dir (via `OXLINT_TAILWINDCSS_CACHE_DIR`, warmed from a precompute-only seed), and the
+  cache-mutating tests no longer share fixed scratch paths — fixing the intermittent
+  `canonicalize-persistence` failures seen when two runs overlapped.
+
 ## 1.11.0
 
 `enforce-consistent-line-wrapping`'s `printWidth` reported over-width class strings but offered no

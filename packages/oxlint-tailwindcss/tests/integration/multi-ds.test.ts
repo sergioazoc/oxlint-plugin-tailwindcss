@@ -16,7 +16,9 @@ import {
 
 const PROJECT_ROOT = resolve(__dirname, '../..')
 const FIXTURES = resolve(__dirname, '../fixtures')
-const TEMP_DIR = join(PROJECT_ROOT, '.bench-tmp', 'multi-ds')
+// `process.pid` keeps this scratch dir private to this run's worker so
+// concurrent `pnpm test` invocations don't race on each other's files.
+const TEMP_DIR = join(PROJECT_ROOT, '.bench-tmp', `multi-ds-${process.pid}`)
 
 // pkg-web uses with-components.css → has .btn, .card component classes
 // pkg-api uses custom-theme.css → has color-brand, spacing-18 custom values
