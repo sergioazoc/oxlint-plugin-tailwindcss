@@ -1,83 +1,20 @@
 # Changelog
 
-## 1.13.0
-
-Two changes: a new `attributePatterns` extractor setting for regex JSX attribute matching
-([#134](https://github.com/sergioazoc/oxlint-tailwindcss/issues/134)), and a bounded, self-healing
-retry for worker per-request failures that fixes a timeout-cost regression introduced in 1.10.2
-([#145](https://github.com/sergioazoc/oxlint-tailwindcss/issues/145)).
-
-### New features
-
-- **`settings.tailwindcss.attributePatterns`** (reported by @hirbod). Regex patterns (as strings)
-  matched against JSX attribute names, additive to the exact `attributes` list. `["ClassName$"]`
-  scans every `*ClassName` prop without enumerating them — for React Native / Uniwind and component
-  libraries that expose many class props. Empty by default, so exact matching stays the default and
-  existing configs are unaffected. It mirrors `variablePatterns`, and like it, an invalid regex
-  source is skipped rather than crashing the lint.
-- **`OXLINT_TAILWINDCSS_WORKER_REQUEST_TIMEOUT` environment variable.** Overrides the sort /
-  canonicalize / declaration worker services' per-request timeout (default `30000` ms). Raise it on
-  a slow-but-functional machine or CI runner whose cold canonicalize sits near the default, so the
-  request **completes** (the rule keeps working) instead of timing out and failing fast. Unlike
-  `settings.tailwindcss.timeout`, which governs the precompute loader only, this env var applies to
-  the worker services — the knob the previous timeout error hint said didn't exist.
-
-### Bug fixes
-
-- **A timed-out (or otherwise failing) worker request no longer costs O(files)** (reported by
-  @jvdburgh). Since 1.10.2 ([#132](https://github.com/sergioazoc/oxlint-tailwindcss/pull/132)) a
-  timed-out request dropped the worker and retried without remembering it — right for a malformed
-  input (the #130 case), wrong for a timeout: a machine slow enough to time out once times out
-  again, and dropping the worker resets the design system to **cold**, so every remaining class list
-  re-paid the full 30 s timeout (a CI lint went from ~90 s to over ten minutes). Per-request
-  failures (timeout, oversized/`null` response, non-JSON) are now **bounded**: after 3 consecutive
-  failures for one entry point the error goes sticky and the rest of the run fails fast. Any success
-  clears the budget, and the sticky **expires after a backoff window** so a long-lived editor
-  process self-heals rather than staying dead until restart. The #130 fix is unchanged: a single
-  malformed / mid-typing input still recovers on the next call.
-
-### Docs
-
-- Clarified that `variablePatterns` matches **variable declaration names only**, not JSX attributes
-  — its default `/^classNames?$/` reads like the `className` attribute, but the two are unrelated.
-  Use the new `attributePatterns` for JSX props.
-
-## 1.12.0
-
-Maintenance release: dev-toolchain dependency updates plus a new opt-in cache-location override. No
-rule changes behavior.
-
-### New features
-
-- **`OXLINT_TAILWINDCSS_CACHE_DIR` environment variable.** Overrides the design-system disk-cache
-  location (default: a per-uid dir under the system temp dir). Set it to pin the cache at a
-  controlled, pruneable path in CI or sandboxed builds. A directory the plugin creates stays
-  `mode 0o700`; pointing it at a pre-existing world-writable directory re-opens the cache-poisoning
-  vector the per-uid default closes, so that is the caller's responsibility.
-
-### Internal
-
-- Dev-toolchain bumps (no runtime-dependency change): `oxlint`/`@oxlint/plugins` 1.80→1.82, `oxfmt`
-  0.65→0.67, `vitest` 4→5, `tsdown` 0.22→0.23, `@types/node` 26.2→26.5, `vitepress`
-  alpha.19→alpha.20. `tailwindcss`/`@tailwindcss/node` stay at 4.3.3 (latest stable).
-- The test suite is now hermetic across concurrent `pnpm test` invocations: each run gets a private
-  disk-cache dir (via `OXLINT_TAILWINDCSS_CACHE_DIR`, warmed from a precompute-only seed), and the
-  cache-mutating tests no longer share fixed scratch paths — fixing the intermittent
-  `canonicalize-persistence` failures seen when two runs overlapped.
-
 ## 1.11.0
 
-`enforce-consistent-line-wrapping`'s `printWidth` reported over-width class strings but offered no
-fix, so satisfying it in a large codebase meant re-wrapping by hand. This release adds a width-based
-autofix for template literals — **off by default and opt-in via the new `wrapLines` option**
-([#126](https://github.com/sergioazoc/oxlint-tailwindcss/pull/126)).
+The first release since 1.10.2, consolidating everything landed on `main` in the meantime: an opt-in
+width-based autofix for `enforce-consistent-line-wrapping`, regex matching for JSX class attributes,
+two new opt-in environment overrides, and a fix for how much a timed-out worker request costs.
 
 ### New features
 
 - **`enforce-consistent-line-wrapping`: new `wrapLines` option** (`"overWidth" | "all"`, optional).
-  Like `classesPerLine`, it has no default: left unset, `printWidth` stays exactly as it was —
-  warn-only, no autofix — so existing configs see no behavior change; nothing is re-wrapped until
-  you explicitly choose one of the two modes (and `classesPerLine` is not set).
+  `printWidth` reported over-width class strings but offered no fix, so satisfying it in a large
+  codebase meant re-wrapping by hand; `wrapLines` adds a width-based autofix for template literals
+  ([#126](https://github.com/sergioazoc/oxlint-tailwindcss/pull/126)). Like `classesPerLine`, it has
+  no default: left unset, `printWidth` stays exactly as it was — warn-only, no autofix — so existing
+  configs see no behavior change; nothing is re-wrapped until you explicitly choose one of the two
+  modes (and `classesPerLine` is not set).
   - `"overWidth"` re-wraps **only the lines that actually exceed `printWidth`**, greedily packing
     each into the fewest lines that fit the budget while reusing that line's own indentation — the
     same non-destructive contract as the `classesPerLine` fixer. Templates whose lines all fit, and
@@ -105,6 +42,27 @@ autofix for template literals — **off by default and opt-in via the new `wrapL
   and `"never"` skips grouping entirely, packing classes greedily into the fewest lines that fit.
   `"overWidth"` and the `classesPerLine` fixer never re-group, so they ignore `group`.
 
+- **`settings.tailwindcss.attributePatterns`**
+  ([#134](https://github.com/sergioazoc/oxlint-tailwindcss/issues/134), reported by @hirbod). Regex
+  patterns (as strings) matched against JSX attribute names, additive to the exact `attributes`
+  list. `["ClassName$"]` scans every `*ClassName` prop without enumerating them — for React Native /
+  Uniwind and component libraries that expose many class props. Empty by default, so exact matching
+  stays the default and existing configs are unaffected. It mirrors `variablePatterns`, and like it,
+  an invalid regex source is skipped rather than crashing the lint.
+
+- **`OXLINT_TAILWINDCSS_CACHE_DIR` environment variable.** Overrides the design-system disk-cache
+  location (default: a per-uid dir under the system temp dir). Set it to pin the cache at a
+  controlled, pruneable path in CI or sandboxed builds. A directory the plugin creates stays
+  `mode 0o700`; pointing it at a pre-existing world-writable directory re-opens the cache-poisoning
+  vector the per-uid default closes, so that is the caller's responsibility.
+
+- **`OXLINT_TAILWINDCSS_WORKER_REQUEST_TIMEOUT` environment variable.** Overrides the sort /
+  canonicalize / declaration worker services' per-request timeout (default `30000` ms). Raise it on
+  a slow-but-functional machine or CI runner whose cold canonicalize sits near the default, so the
+  request **completes** (the rule keeps working) instead of timing out and failing fast. Unlike
+  `settings.tailwindcss.timeout`, which governs the precompute loader only, this env var applies to
+  the worker services — the knob the previous timeout error hint said didn't exist.
+
 ### Changed
 
 - **`enforce-consistent-line-wrapping` no longer reports `tooLong` for a line whose single class
@@ -121,13 +79,41 @@ autofix for template literals — **off by default and opt-in via the new `wrapL
   consulted for these two specific fixers so no performance penalty is applied to the rule if those
   fixers are not used.
 
-### Fixed
+### Bug fixes
 
 - **`enforce-consistent-line-wrapping`: `classesPerLine` no longer splits a class glued to a `${}`
   interpolation on `--fix`.** For a template like `` `${a}flex md:block` `` — where `${a}flex` is a
   single runtime class — the `classesPerLine` fixer is now warn-only, matching the `wrapLines`
   fixer's `glued`-boundary guard. Previously it inserted a space at the boundary and rewrote the
   class to `` `${a} flex …` ``, silently splitting it in two.
+- **A timed-out (or otherwise failing) worker request no longer costs O(files)**
+  ([#145](https://github.com/sergioazoc/oxlint-tailwindcss/issues/145), reported by @jvdburgh).
+  Since 1.10.2 ([#132](https://github.com/sergioazoc/oxlint-tailwindcss/pull/132)) a timed-out
+  request dropped the worker and retried without remembering it — right for a malformed input (the
+  #130 case), wrong for a timeout: a machine slow enough to time out once times out again, and
+  dropping the worker resets the design system to **cold**, so every remaining class list re-paid
+  the full 30 s timeout (a CI lint went from ~90 s to over ten minutes). Per-request failures
+  (timeout, oversized/`null` response, non-JSON) are now **bounded**: after 3 consecutive failures
+  for one entry point the error goes sticky and the rest of the run fails fast. Any success clears
+  the budget, and the sticky **expires after a backoff window** so a long-lived editor process
+  self-heals rather than staying dead until restart. The #130 fix is unchanged: a single malformed /
+  mid-typing input still recovers on the next call.
+
+### Docs
+
+- Clarified that `variablePatterns` matches **variable declaration names only**, not JSX attributes
+  — its default `/^classNames?$/` reads like the `className` attribute, but the two are unrelated.
+  Use the new `attributePatterns` for JSX props.
+
+### Internal
+
+- Dev-toolchain bumps (no runtime-dependency change): `oxlint`/`@oxlint/plugins` 1.80→1.82, `oxfmt`
+  0.65→0.67, `vitest` 4→5, `tsdown` 0.22→0.23, `@types/node` 26.2→26.5, `vitepress`
+  alpha.19→alpha.20. `tailwindcss`/`@tailwindcss/node` stay at 4.3.3 (latest stable).
+- The test suite is now hermetic across concurrent `pnpm test` invocations: each run gets a private
+  disk-cache dir (via `OXLINT_TAILWINDCSS_CACHE_DIR`, warmed from a precompute-only seed), and the
+  cache-mutating tests no longer share fixed scratch paths — fixing the intermittent
+  `canonicalize-persistence` failures seen when two runs overlapped.
 
 ## 1.10.2
 
