@@ -528,6 +528,9 @@ unconditionally.
 <div className="hover:flex dark:flex" />
 <div className="absolute after:absolute" />
 <div className="shrink-0 [&>svg]:shrink-0" />
+
+// ✅ OK — responsive reset: lg:block restores display after md:hidden removed it
+<div className="block md:hidden lg:block" />
 ```
 
 Only flags when the exact same utility exists both as base and with a conditional variant. Variants
@@ -539,7 +542,14 @@ are not flagged.
 are override fragments where the "redundant" variant is often load-bearing (it beats a same-group
 class the component merges in), so they are skipped to avoid false positives.
 
-**No options.** **No autofix.**
+**Responsive resets (issue #150):** the base only "applies unconditionally" if nothing else
+overrides its property. A variant that re-establishes a property an intermediate class took away
+(`lg:block` after `md:hidden`) is load-bearing and not flagged. With an `entryPoint` this uses the
+CSS properties the design system reports (any property); without one it falls back to the closed
+`display`/`visibility` groups.
+
+**Options:** `entryPoint` (per-rule override of `settings.tailwindcss.entryPoint`; optional — the
+rule is DS-optional and never reports a missing design system). **No autofix.**
 
 ---
 

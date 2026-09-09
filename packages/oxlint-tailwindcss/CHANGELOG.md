@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.11.1
+
+`no-contradicting-variants` flags a variant class as redundant when the same utility already applies
+unconditionally (`flex hover:flex`). It decided by exact utility identity alone, with no notion of
+the responsive cascade, so `block md:hidden lg:block` reported `lg:block` as redundant against the
+base `block` — missing that `md:hidden` sets `display: none` from `md` up and `lg:block` restores
+`display: block` from `lg` up. Acting on the finding (removing `lg:block`) leaves the element hidden
+on large screens, a rendering regression on one of Tailwind's most common mobile-first patterns
+([#150](https://github.com/sergioazoc/oxlint-tailwindcss/issues/150), reported by @ftzi).
+
+### Bug fixes
+
+- **`no-contradicting-variants` no longer flags a responsive class that re-establishes a property an
+  intermediate class overrode.** Before reporting `V:util` redundant against an unconditional base
+  `util`, the rule now checks whether a sibling with a _different_ utility writes an overlapping CSS
+  property; if so, the variant is a load-bearing reset (`md:hidden` → `lg:block`) and stays
+  unflagged. With an `entryPoint` the property comes from the design system (covers `text-align`,
+  `position`, project-defined utilities, …); without one it falls back to the closed
+  `display`/`visibility` groups. The change only ever suppresses a report, so it cannot introduce a
+  new false positive — genuinely redundant pairs like `flex hover:flex` and `flex dark:flex` report
+  exactly as before.
+
 ## 1.11.0
 
 The first release since 1.10.2, consolidating everything landed on `main` in the meantime: an opt-in

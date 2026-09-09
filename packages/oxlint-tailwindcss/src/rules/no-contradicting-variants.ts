@@ -6,9 +6,44 @@ import {
   changesTarget,
   extractUtility,
   extractVariants,
+  splitImportant,
 } from '../utils/class-parser'
 import { createLazyLoader } from '../design-system/loader'
 import { softGetDS } from '../utils/fatal'
+
+// Static fallback for the CSS property a utility declares, used when no entry
+// point is configured (this rule is DS-OPTIONAL). Only the closed, stable groups
+// where "which property does this touch?" is unambiguous without the design
+// system: `display` and `visibility`. With an entry point, `getCssProperties`
+// supersedes this and extends coverage to every property. Composite utilities
+// that touch more than their nominal property (`sr-only`/`not-sr-only`) are
+// deliberately omitted — the static claim has to be exact.
+const STATIC_PROP_GROUPS = new Map<string, string>([
+  ['block', 'display'],
+  ['inline-block', 'display'],
+  ['inline', 'display'],
+  ['flex', 'display'],
+  ['inline-flex', 'display'],
+  ['grid', 'display'],
+  ['inline-grid', 'display'],
+  ['table', 'display'],
+  ['inline-table', 'display'],
+  ['table-caption', 'display'],
+  ['table-cell', 'display'],
+  ['table-column', 'display'],
+  ['table-column-group', 'display'],
+  ['table-footer-group', 'display'],
+  ['table-header-group', 'display'],
+  ['table-row-group', 'display'],
+  ['table-row', 'display'],
+  ['flow-root', 'display'],
+  ['contents', 'display'],
+  ['list-item', 'display'],
+  ['hidden', 'display'],
+  ['visible', 'visibility'],
+  ['invisible', 'visibility'],
+  ['collapse', 'visibility'],
+])
 
 export const noContradictingVariants = defineRule({
   meta: {
@@ -41,14 +76,24 @@ export const noContradictingVariants = defineRule({
     // emitted `designSystemUnavailable` and must not start.
     const getDS = createLazyLoader(context)
 
-    function variantFactsLookup(): (variant: string) => VariantFacts | undefined {
-      const ds = softGetDS(getDS)
-      if (!ds) return () => undefined
-      return (variant) => ds.cache.getVariantFacts(variant)
-    }
-
     function check(locations: ClassLocation[]) {
-      const factsFor = variantFactsLookup()
+      const ds = softGetDS(getDS)
+      const cache = ds ? ds.cache : null
+      const factsFor = (v: string): VariantFacts | undefined =>
+        ds ? ds.cache.getVariantFacts(v) : undefined
+
+      // The CSS property names a bare utility declares on its own box. Prefers
+      // the design system (covers every property + project-defined utilities);
+      // falls back to the static display/visibility groups so the rule keeps
+      // working without an entry point.
+      const propsOf = (bare: string): readonly string[] => {
+        if (cache) {
+          const props = cache.getCssProperties(bare)
+          if (props.length > 0) return props
+        }
+        const group = STATIC_PROP_GROUPS.get(bare)
+        return group ? [group] : []
+      }
 
       for (const loc of locations) {
         // Composition guard (issue #117): this relational check is only sound on
@@ -67,7 +112,8 @@ export const noContradictingVariants = defineRule({
         }
 
         // Check variant classes against base classes
-        for (const cls of classes) {
+        for (let i = 0; i < classes.length; i++) {
+          const cls = classes[i]
           const variants = extractVariants(cls)
           if (variants.length === 0) continue
 
@@ -76,13 +122,37 @@ export const noContradictingVariants = defineRule({
 
           const utility = extractUtility(cls)
           // Only report if the exact same utility exists as a base class
-          if (baseUtilities.has(utility)) {
-            context.report({
-              node: loc.node,
-              messageId: 'redundantVariant',
-              data: { variantClass: cls, baseClass: utility },
+          if (!baseUtilities.has(utility)) continue
+
+          // Responsive-reset guard (issue #150): the base only "applies
+          // unconditionally" if nothing else overrides its property. When a
+          // sibling with a DIFFERENT utility writes an overlapping CSS property,
+          // this variant is re-establishing it (`block md:hidden lg:block`), so
+          // it's load-bearing, not redundant. Strictly report-reducing.
+          const bare = splitImportant(utility).bare
+          const candidateProps = propsOf(bare)
+          if (candidateProps.length > 0) {
+            const overridden = classes.some((other, j) => {
+              if (j === i) return false
+              // A sibling on another box (pseudo-element/child selector) can't
+              // override this element's property.
+              const otherVariants = extractVariants(other)
+              if (otherVariants.some((v) => changesTarget(v, factsFor(v)))) return false
+              const otherBare = splitImportant(extractUtility(other)).bare
+              // Same utility (the base itself, or another variant of it) is not
+              // an override — it computes to the same value.
+              if (otherBare === bare) return false
+              const otherProps = propsOf(otherBare)
+              return otherProps.some((p) => candidateProps.includes(p))
             })
+            if (overridden) continue
           }
+
+          context.report({
+            node: loc.node,
+            messageId: 'redundantVariant',
+            data: { variantClass: cls, baseClass: utility },
+          })
         }
       }
     }

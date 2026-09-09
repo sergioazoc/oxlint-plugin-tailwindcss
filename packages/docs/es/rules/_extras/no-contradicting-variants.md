@@ -22,6 +22,16 @@ comporta igual que antes — nunca reporta que falte el design system.
 El match es por identidad exacta de la utility, así que `bg-white hover:bg-blue-500` queda intacto
 (valores distintos), igual que `flex hover:items-center` (utilities distintas).
 
+"La base aplica sin condiciones" sólo se sostiene cuando nada más pisa su propiedad. Una clase
+responsive que restablece una propiedad que un breakpoint intermedio le quitó es **load-bearing**,
+no redundante: en `block md:hidden lg:block` la base es `block`, pero `md:hidden` pone
+`display: none` desde `md` hacia arriba, y `lg:block` restaura `display: block` desde `lg` hacia
+arriba — quitarla deja el elemento oculto en pantallas grandes. La regla lo detecta y se queda
+callada cuando una clase hermana con una utility _distinta_ escribe una propiedad CSS que se solapa.
+Sin entry point esto cubre los grupos cerrados `display` y `visibility`; con uno configurado usa las
+propiedades que el design system reporta de verdad, así que se extiende a cualquier propiedad
+(`text-align`, `position`, utilities que define el proyecto, …).
+
 ## Opciones
 
 | Opción       | Tipo     | Por defecto | Descripción                                              |
@@ -63,6 +73,9 @@ design system.
 <div className="absolute after:absolute" />
 <div className="shrink-0 [&>svg]:shrink-0" />
 <div className="flex *:data-[slot=select-value]:flex" />
+
+// Reset responsive — `lg:block` restaura `display` después de que `md:hidden` lo quitó
+<div className="block md:hidden lg:block" />
 ```
 
 ## Interacciones con otras reglas
