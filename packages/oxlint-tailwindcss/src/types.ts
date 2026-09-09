@@ -50,6 +50,14 @@ export interface PluginSettings {
   timeout?: number
   /** Additional JSX attribute names to scan for Tailwind classes (added to defaults) */
   attributes?: string[]
+  /**
+   * Regex patterns (as strings) matched against JSX attribute NAMES, additive to
+   * the exact `attributes` list. Lets `*ClassName` conventions (React Native /
+   * Uniwind, component libraries) be scanned without listing every prop, e.g.
+   * `["ClassName$"]`. Note: `variablePatterns` matches variable declaration
+   * names only, NOT JSX attributes — use this for attributes.
+   */
+  attributePatterns?: string[]
   /** Additional function names to scan for Tailwind classes (added to defaults) */
   callees?: string[]
   /** Additional tagged template tag names to scan (added to defaults) */

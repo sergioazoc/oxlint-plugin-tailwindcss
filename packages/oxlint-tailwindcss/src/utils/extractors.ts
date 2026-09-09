@@ -75,6 +75,7 @@ export function preserveSpaces(loc: ClassLocation, fixed: string): string {
 
 export interface ExtractorConfig {
   attributes: string[]
+  attributePatterns: RegExp[]
   callees: string[]
   tags: string[]
   variablePatterns: RegExp[]
@@ -84,6 +85,10 @@ const DEFAULT_VARIABLE_PATTERNS = [/^classNames?$/, /^classes$/, /^styles?$/]
 
 export const DEFAULT_EXTRACTOR_CONFIG: ExtractorConfig = {
   attributes: ['className', 'class'],
+  // No default attribute patterns — exact `attributes` matching is the default
+  // (#134). Opt in via `settings.tailwindcss.attributePatterns` for props like
+  // `*ClassName` (React Native / Uniwind).
+  attributePatterns: [],
   callees: [
     'cn',
     'clsx',
@@ -181,6 +186,11 @@ export function getExtractorConfig(context: {
       tw.attributes,
       exclude?.attributes,
     ),
+    // Regex matching for JSX attribute NAMES (#134), additive to the exact
+    // `attributes` list. compileRegexList skips invalid sources instead of
+    // throwing (same graceful degradation as variablePatterns). No defaults, so
+    // nothing to exclude.
+    attributePatterns: compileRegexList(tw.attributePatterns),
     callees: mergeUnique(DEFAULT_EXTRACTOR_CONFIG.callees, tw.callees, exclude?.callees),
     tags: mergeUnique(DEFAULT_EXTRACTOR_CONFIG.tags, tw.tags, exclude?.tags),
     variablePatterns: [
@@ -283,7 +293,15 @@ export function extractFromJSXAttribute(
   config: ExtractorConfig = DEFAULT_EXTRACTOR_CONFIG,
 ): ClassLocation[] {
   const name = node.name.type === 'JSXIdentifier' ? node.name.name : undefined
-  if (!name || !config.attributes.includes(name)) return []
+  // Exact `attributes` match, or a regex `attributePatterns` match (#134) — the
+  // latter lets `*ClassName` conventions (React Native / Uniwind) be caught
+  // without listing every prop. Exact-match stays the default (patterns empty).
+  if (
+    !name ||
+    (!config.attributes.includes(name) && !config.attributePatterns.some((p) => p.test(name)))
+  ) {
+    return []
+  }
 
   if (!node.value) return []
 

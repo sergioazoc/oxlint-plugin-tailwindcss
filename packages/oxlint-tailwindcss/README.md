@@ -34,8 +34,8 @@ Read the story behind this plugin:
   possible.
 - **Variable detection** — Lints variables matching `/^classNames?$/`, `/^classes$/`, `/^styles?$/`
   (e.g. `className`, `classNames`, `classes`, `styles`) automatically.
-- **Customizable** — Extend class detection with custom attributes, callees, tags, and variable
-  patterns.
+- **Customizable** — Extend class detection with custom attributes, attribute patterns (regex, for
+  `*ClassName` props), callees, tags, and variable patterns.
 - **Component class support** — Recognizes `@layer components { .btn {} }` in your CSS.
 
 Full documentation: **https://oxlint-tailwindcss.pages.dev** (English) ·
@@ -165,6 +165,18 @@ For slow environments (large monorepos, CI), you can increase the design system 
 }
 ```
 
+This `timeout` governs the **precompute loader** only. The sort/canonicalize/declaration worker
+services used while linting have a separate **30 s per-request** timeout. If a slow-but-functional
+machine or CI runner reports `worker request timed out after 30000ms` on valid class lists, raise it
+with the `OXLINT_TAILWINDCSS_WORKER_REQUEST_TIMEOUT` environment variable (milliseconds):
+
+```bash
+OXLINT_TAILWINDCSS_WORKER_REQUEST_TIMEOUT=60000 oxlint
+```
+
+A timeout no longer costs O(files): after a few consecutive timeouts for one entry point the rest of
+the run fails fast, and the state self-heals once the machine recovers.
+
 ### Root font size
 
 The `enforce-canonical` rule converts px-based arbitrary values to named classes (e.g. `p-[2px]` →
@@ -230,8 +242,11 @@ entries are appended to the built-in defaults:
   "jsPlugins": ["oxlint-tailwindcss"],
   "settings": {
     "tailwindcss": {
-      // Additional JSX attribute names to scan
+      // Additional JSX attribute names to scan (exact match)
       "attributes": ["xyzClassName", "classNames", "overlayClassName"],
+      // Regex patterns for JSX attribute names — catches *ClassName conventions
+      // (React Native / Uniwind) without listing every prop
+      "attributePatterns": ["ClassName$"],
       // Additional function names to scan
       "callees": ["myHelper"],
       // Additional tagged template tags to scan
@@ -249,6 +264,12 @@ entries are appended to the built-in defaults:
 
 This applies to all 24 rules at once. For example, adding `"classNames"` to `attributes` makes every
 rule lint `<Input classNames={{ root: "..." }} />`.
+
+> **`attributePatterns` vs `variablePatterns`** — both match by regex, but on different things.
+> `attributePatterns` matches **JSX attribute names** (`contentContainerClassName`,
+> `tintColorClassName`, …); `variablePatterns` matches **variable declaration names only**
+> (`const fooClassName = "..."`), never JSX attributes — despite its default `/^classNames?$/`
+> looking like the `className` attribute.
 
 To **remove** specific items from the built-in defaults, use `exclude`:
 

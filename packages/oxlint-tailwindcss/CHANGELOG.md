@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.13.0
+
+Two changes: a new `attributePatterns` extractor setting for regex JSX attribute matching
+([#134](https://github.com/sergioazoc/oxlint-tailwindcss/issues/134)), and a bounded, self-healing
+retry for worker per-request failures that fixes a timeout-cost regression introduced in 1.10.2
+([#145](https://github.com/sergioazoc/oxlint-tailwindcss/issues/145)).
+
+### New features
+
+- **`settings.tailwindcss.attributePatterns`** (reported by @hirbod). Regex patterns (as strings)
+  matched against JSX attribute names, additive to the exact `attributes` list. `["ClassName$"]`
+  scans every `*ClassName` prop without enumerating them — for React Native / Uniwind and component
+  libraries that expose many class props. Empty by default, so exact matching stays the default and
+  existing configs are unaffected. It mirrors `variablePatterns`, and like it, an invalid regex
+  source is skipped rather than crashing the lint.
+- **`OXLINT_TAILWINDCSS_WORKER_REQUEST_TIMEOUT` environment variable.** Overrides the sort /
+  canonicalize / declaration worker services' per-request timeout (default `30000` ms). Raise it on
+  a slow-but-functional machine or CI runner whose cold canonicalize sits near the default, so the
+  request **completes** (the rule keeps working) instead of timing out and failing fast. Unlike
+  `settings.tailwindcss.timeout`, which governs the precompute loader only, this env var applies to
+  the worker services — the knob the previous timeout error hint said didn't exist.
+
+### Bug fixes
+
+- **A timed-out (or otherwise failing) worker request no longer costs O(files)** (reported by
+  @jvdburgh). Since 1.10.2 ([#132](https://github.com/sergioazoc/oxlint-tailwindcss/pull/132)) a
+  timed-out request dropped the worker and retried without remembering it — right for a malformed
+  input (the #130 case), wrong for a timeout: a machine slow enough to time out once times out
+  again, and dropping the worker resets the design system to **cold**, so every remaining class list
+  re-paid the full 30 s timeout (a CI lint went from ~90 s to over ten minutes). Per-request
+  failures (timeout, oversized/`null` response, non-JSON) are now **bounded**: after 3 consecutive
+  failures for one entry point the error goes sticky and the rest of the run fails fast. Any success
+  clears the budget, and the sticky **expires after a backoff window** so a long-lived editor
+  process self-heals rather than staying dead until restart. The #130 fix is unchanged: a single
+  malformed / mid-typing input still recovers on the next call.
+
+### Docs
+
+- Clarified that `variablePatterns` matches **variable declaration names only**, not JSX attributes
+  — its default `/^classNames?$/` reads like the `className` attribute, but the two are unrelated.
+  Use the new `attributePatterns` for JSX props.
+
 ## 1.12.0
 
 Maintenance release: dev-toolchain dependency updates plus a new opt-in cache-location override. No

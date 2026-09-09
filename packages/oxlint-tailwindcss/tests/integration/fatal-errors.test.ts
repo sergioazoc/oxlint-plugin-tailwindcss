@@ -6,7 +6,7 @@
  * `designSystemUnavailable` diagnostic.
  */
 
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { resolve } from 'node:path'
 import {
   canonicalizeClassesSync,
@@ -189,6 +189,91 @@ describe('per-request worker failure — retryable, not sticky (#130)', () => {
 
     // Regression: the SAME instance + SAME cssPath must retry (re-spawn) and
     // succeed. With the old sticky remember() this rethrew the error forever.
+    expect(worker!.callSync(CSS, ['flex', 'p-2'])).toEqual(['flex', 'p-2'])
+  })
+})
+
+/**
+ * Issue #145. #130 made every per-request failure retryable — right for a
+ * malformed input, wrong for a TIMEOUT: a machine slow enough to time out once
+ * times out again, and `dropWorker` resets the DS to cold, so an unbounded retry
+ * re-pays the full timeout on every remaining class list (O(files) — a CI run
+ * went from ~90s to >10min). The fix BOUNDS the retrying: after a few
+ * consecutive per-request failures for one entry point the error goes
+ * SOFT-sticky (fast-fail), any success clears the budget, and the sticky expires
+ * after a backoff window so a long-lived editor self-heals (never the #130
+ * "dead until restart"). `requestTimeoutMs` / `maxConsecutiveRequestFailures`
+ * are test seams so this doesn't wait the shipped 30s.
+ */
+describe('per-request worker failure — bounded, self-healing (#145)', () => {
+  const CSS = resolve(__dirname, '../fixtures/default.css')
+  let worker: DesignSystemWorker<unknown, unknown> | null = null
+
+  afterEach(() => {
+    worker?.reset()
+    worker = null
+    vi.useRealTimers()
+  })
+
+  test('stops paying the request timeout once the budget is spent', () => {
+    worker = new DesignSystemWorker({
+      // A handler that never replies stands in for one that is merely slow.
+      workerScript: makeWorkerScript('(ds, req) => { while (true) {} }'),
+      serviceName: 'canonicalize',
+      requestTimeoutMs: 50,
+      maxConsecutiveRequestFailures: 2,
+    })
+
+    // Each call within budget waits out the (short) timeout and re-spawns cold.
+    for (let i = 0; i < 2; i++) {
+      expect(() => worker!.callSync(CSS, ['flex'])).toThrow(SortServiceError)
+    }
+
+    // Budget spent → the next call must fast-fail via the soft sticky instead of
+    // waiting out another timeout (+ cold re-spawn). Without the bound it would.
+    const start = Date.now()
+    expect(() => worker!.callSync(CSS, ['flex'])).toThrow(SortServiceError)
+    expect(Date.now() - start).toBeLessThan(50)
+  })
+
+  test('a success between failures clears the budget', () => {
+    worker = new DesignSystemWorker({
+      // Throw on a sentinel (→ null branch), echo anything else back.
+      workerScript: makeWorkerScript(
+        "(ds, req) => { if (req === '__BOOM__') throw new Error('boom'); return req; }",
+      ),
+      serviceName: 'canonicalize',
+      maxConsecutiveRequestFailures: 2,
+    })
+
+    // Two NON-consecutive failures (a success in between) must NOT trip the
+    // budget — otherwise interleaved traffic would quietly reintroduce #130.
+    expect(() => worker!.callSync(CSS, '__BOOM__')).toThrow(SortServiceError) // count → 1
+    expect(worker!.callSync(CSS, ['flex'])).toEqual(['flex']) // success → count reset to 0
+    expect(() => worker!.callSync(CSS, '__BOOM__')).toThrow(SortServiceError) // count → 1 (not 2)
+    // Still healthy: not soft-sticky, so a valid call succeeds.
+    expect(worker!.callSync(CSS, ['flex', 'p-2'])).toEqual(['flex', 'p-2'])
+  })
+
+  test('the soft sticky expires so a recovered machine self-heals', () => {
+    vi.useFakeTimers()
+    worker = new DesignSystemWorker({
+      workerScript: makeWorkerScript(
+        "(ds, req) => { if (req === '__BOOM__') throw new Error('boom'); return req; }",
+      ),
+      serviceName: 'canonicalize',
+      maxConsecutiveRequestFailures: 1, // one failure → soft-sticky immediately
+    })
+
+    // Budget 1: the first failure makes it soft-sticky.
+    expect(() => worker!.callSync(CSS, '__BOOM__')).toThrow(SortServiceError)
+    // Within the backoff window a valid call still fast-fails (soft sticky).
+    expect(() => worker!.callSync(CSS, ['flex'])).toThrow(SortServiceError)
+
+    // Past the backoff window the sticky expires: the next call retries and
+    // succeeds (a long-lived process is never dead until restart). Atomics.wait
+    // uses real time, so faking Date only moves the backoff clock.
+    vi.advanceTimersByTime(120_000)
     expect(worker!.callSync(CSS, ['flex', 'p-2'])).toEqual(['flex', 'p-2'])
   })
 })

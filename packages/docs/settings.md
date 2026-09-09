@@ -65,6 +65,20 @@ only if your project sets a non-16 root size on `<html>`.
 How long the plugin waits for the worker thread that precomputes the design system. Slow CI machines
 may need this raised; you should not need it lowered.
 
+This governs the **precompute loader** only. The sort / canonicalize / declaration worker services
+that the design-system-dependent rules use while linting have their own **30 s per-request** timeout
+that this setting does not move. If a slow-but-functional machine or CI runner reports
+`worker request timed out after 30000ms` on valid class lists, raise it with the
+`OXLINT_TAILWINDCSS_WORKER_REQUEST_TIMEOUT` environment variable (milliseconds) so the request
+completes instead of failing:
+
+```bash
+OXLINT_TAILWINDCSS_WORKER_REQUEST_TIMEOUT=60000 oxlint
+```
+
+A timeout no longer costs O(files): after a few consecutive timeouts for one entry point the rest of
+the run fails fast, and the state self-heals once the machine recovers.
+
 ## `debug`
 
 `boolean`, default `false`. Also activated by the `DEBUG=oxlint-tailwindcss` environment variable.
@@ -117,6 +131,17 @@ The plugin scans these locations by default:
 | Tags              | `` tw`...` `` (tagged template literals)                                                                           |
 | Variable patterns | `/^classNames?$/`, `/^classes$/`, `/^styles?$/`                                                                    |
 
+`attributes`, `callees`, and `tags` match **exact names**. Two axes match by **regex**, and their
+scope differs — mind which one you want:
+
+- **`attributePatterns`** matches **JSX attribute names**. Use it for `*ClassName` conventions so
+  you don't list every prop — e.g. `["ClassName$"]` catches `contentContainerClassName` and
+  `tintColorClassName` on React Native / Uniwind components. Additive to the exact `attributes`
+  list; empty by default, so exact matching stays the default.
+- **`variablePatterns`** matches **variable declaration names only** (`const fooClassName = "..."`),
+  **not** JSX attributes. Its default `/^classNames?$/` overlaps in spelling with the `className`
+  attribute, but the two are unrelated — a `variablePatterns` entry never affects JSX props.
+
 Add more without losing the defaults:
 
 ```jsonc
@@ -124,6 +149,7 @@ Add more without losing the defaults:
   "settings": {
     "tailwindcss": {
       "attributes": ["xyzClassName"],
+      "attributePatterns": ["ClassName$"],
       "callees": ["myHelper"],
       "tags": ["css"],
       "variablePatterns": ["^tw[A-Z]"]
@@ -161,6 +187,7 @@ Or remove from the defaults:
       "debug": false,                      // optional
       "allowUntestedEngine": false,        // optional
       "attributes": [],                    // optional
+      "attributePatterns": [],             // optional
       "callees": [],                       // optional
       "tags": [],                          // optional
       "variablePatterns": [],              // optional
