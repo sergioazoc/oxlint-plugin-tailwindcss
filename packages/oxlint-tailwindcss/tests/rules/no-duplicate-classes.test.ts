@@ -206,6 +206,40 @@ describe('custom extractor settings', () => {
     ],
   })
 
+  // Custom attribute patterns (#134): regex matching for JSX attribute NAMES,
+  // additive to the exact `attributes` list (React Native / Uniwind *ClassName).
+  settingsTester.run('no-duplicate-classes (custom attributePatterns)', noDuplicateClasses, {
+    valid: [
+      // Without settings, a *ClassName prop is ignored...
+      { code: '<ScrollView contentContainerClassName="flex flex" />', filename: 'test.tsx' },
+      // ...and an attribute the pattern does NOT match is left alone.
+      {
+        code: '<ScrollView somethingElse="flex flex" />',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { attributePatterns: ['ClassName$'] } },
+      },
+    ],
+    invalid: [
+      // A prop matched by the pattern is scanned.
+      {
+        code: '<ScrollView contentContainerClassName="flex flex items-center" />',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { attributePatterns: ['ClassName$'] } },
+        errors: [{ messageId: 'duplicate' }],
+        output: '<ScrollView contentContainerClassName="flex items-center" />',
+      },
+      // Additive: the default `className` attribute still works when a
+      // (non-matching) pattern is configured — patterns don't replace exact names.
+      {
+        code: '<div className="flex flex" />',
+        filename: 'test.tsx',
+        settings: { tailwindcss: { attributePatterns: ['^tw[A-Z]'] } },
+        errors: [{ messageId: 'duplicate' }],
+        output: '<div className="flex" />',
+      },
+    ],
+  })
+
   // Custom callees
   settingsTester.run('no-duplicate-classes (custom callees)', noDuplicateClasses, {
     valid: [

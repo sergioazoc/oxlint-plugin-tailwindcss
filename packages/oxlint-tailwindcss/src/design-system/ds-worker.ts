@@ -9,10 +9,14 @@
  * — SharedArrayBuffer layout, state machine, lifecycle, fail-loud — and each
  * service shrinks to ~40 LOC of singleton + public signature.
  *
- * v1: failures throw `SortServiceError`. The error is sticky for the lifetime
- * of the process (per cssPath) so subsequent calls don't pay another
- * init-timeout cost. Callers wrap via `safeGetDS` to surface the failure as a
- * single `designSystemUnavailable` diagnostic.
+ * v1: failures throw `SortServiceError`. Init/spawn/crash/DS-load failures are
+ * HARD sticky per cssPath for the process lifetime, so subsequent calls don't
+ * pay another init-timeout cost. Per-request failures (timeout / non-JSON /
+ * null) are SOFT sticky (#145): unbounded retrying re-pays the full request
+ * timeout on every class list (O(files)), so after a few consecutive failures
+ * the error goes sticky for a backoff window and the rest of the run fails fast;
+ * any success clears it. Callers wrap via `safeGetDS` to surface the failure as
+ * a single `designSystemUnavailable` diagnostic.
  */
 
 import { Worker } from 'node:worker_threads'
@@ -33,6 +37,35 @@ const LENGTH_OFFSET = HEADER_INTS * 4 // 16 bytes
 const DATA_OFFSET = LENGTH_OFFSET + 4 // 20 bytes
 const INIT_TIMEOUT = 60_000 // 60 s to load DS (raised in v1 to avoid spurious timeouts on slow CI)
 const REQUEST_TIMEOUT = 30_000 // 30 s per request
+
+// After this many consecutive per-request failures for one entry point, the
+// error goes SOFT-sticky so the rest of the run fails fast instead of re-paying
+// the timeout on every remaining class list (#145). Any success resets the
+// count, so a single transient blip never trips it.
+const MAX_CONSECUTIVE_REQUEST_FAILURES = 3
+
+// How long a SOFT (per-request) sticky error lasts before a retry is allowed
+// again (#145). Unlike init/spawn/crash/DS-load failures — HARD sticky for the
+// whole process — a per-request sticky expires: after this window `ensure()`
+// lets one attempt through, so a long-lived editor self-heals when the machine
+// recovers instead of staying dead until restart (the #130 symptom).
+const REQUEST_STICKY_BACKOFF_MS = 60_000
+
+/**
+ * Per-request timeout override for slow-but-functional machines (#145). A
+ * machine whose cold canonicalize sits close to the 30 s default times out
+ * spuriously; raising this lets the request COMPLETE (the rule keeps working)
+ * rather than only failing fast. An env var — not a `settings.tailwindcss` key —
+ * keeps the documented invariant that worker services don't read
+ * `settings.tailwindcss.timeout`, and sidesteps the settings-timing problem
+ * (settings throw inside `createOnce`). Read once per worker construction.
+ */
+function envRequestTimeout(): number | undefined {
+  const raw = process.env.OXLINT_TAILWINDCSS_WORKER_REQUEST_TIMEOUT
+  if (raw === undefined || raw === '') return undefined
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? n : undefined
+}
 
 // LRU bound on live workers (#77). In a monorepo linted in one oxlint run the
 // plugin can resolve several entry points, and oxlint feeds files in
@@ -138,6 +171,18 @@ export interface DesignSystemWorkerOptions {
   workerScript: string
   /** Human-readable name shown in error messages. */
   serviceName: 'sort' | 'canonicalize' | 'declarations'
+  /**
+   * Per-request timeout in ms. Precedence: this option >
+   * `OXLINT_TAILWINDCSS_WORKER_REQUEST_TIMEOUT` env var > the 30 s default.
+   * Exists mainly as a test seam — a real timeout test would otherwise wait the
+   * full default; users tune it via the env var (#145).
+   */
+  requestTimeoutMs?: number
+  /**
+   * Consecutive per-request failures for one entry point before the error goes
+   * soft-sticky (default {@link MAX_CONSECUTIVE_REQUEST_FAILURES}). Test seam (#145).
+   */
+  maxConsecutiveRequestFailures?: number
 }
 
 export class DesignSystemWorker<Req, Res> {
@@ -156,12 +201,49 @@ export class DesignSystemWorker<Req, Res> {
   // lastError/lastErrorCssPath pair was cleared on ANY cssPath switch, so it
   // never stayed sticky across the alternating-file pattern #77 describes.
   private errors = new Map<string, SortServiceError>()
+  // Per-request (SOFT) sticky state, kept separate from `errors` (which is HARD
+  // sticky: init/spawn/crash/DS-load, never retried in-process). A per-request
+  // failure — timeout, oversized response, non-JSON — is bounded, not permanent
+  // (#145): `failRequest` counts consecutive failures per cssPath and, past
+  // MAX_CONSECUTIVE_REQUEST_FAILURES, records a soft sticky good for
+  // REQUEST_STICKY_BACKOFF_MS; `ensure` fast-fails until it expires, then lets
+  // one retry through; any success (in `callSync`) clears both. This bounds the
+  // O(files) timeout cost without reintroducing the #130 "dead until restart".
+  private requestFailCount = new Map<string, number>()
+  private requestStick = new Map<string, { err: SortServiceError; until: number }>()
 
-  constructor(private readonly opts: DesignSystemWorkerOptions) {}
+  /** Resolved per-request timeout (option > env var > REQUEST_TIMEOUT). */
+  private readonly requestTimeoutMs: number
+  /** Resolved consecutive-failure budget before a per-request error goes soft-sticky. */
+  private readonly maxConsecutiveRequestFailures: number
 
-  /** Record an error as sticky for `cssPath` and return it for `throw`. */
+  constructor(private readonly opts: DesignSystemWorkerOptions) {
+    this.requestTimeoutMs = opts.requestTimeoutMs ?? envRequestTimeout() ?? REQUEST_TIMEOUT
+    this.maxConsecutiveRequestFailures =
+      opts.maxConsecutiveRequestFailures ?? MAX_CONSECUTIVE_REQUEST_FAILURES
+  }
+
+  /** Record an error as HARD sticky for `cssPath` and return it for `throw`. */
   private remember(cssPath: string, err: SortServiceError): SortServiceError {
     this.errors.set(cssPath, err)
+    return err
+  }
+
+  /**
+   * Handle a per-request (SOFT) failure (#145): drop the worker so the next call
+   * re-spawns, count consecutive failures for this cssPath, and once the budget
+   * is spent record a soft sticky good for a backoff window so the rest of the
+   * run fails fast instead of re-paying the timeout per class list. A later
+   * success (see `callSync`) clears the count and the soft sticky. Returns the
+   * error for `throw` (mirrors `remember`).
+   */
+  private failRequest(cssPath: string, err: SortServiceError): SortServiceError {
+    this.dropWorker(cssPath)
+    const count = (this.requestFailCount.get(cssPath) ?? 0) + 1
+    this.requestFailCount.set(cssPath, count)
+    if (count >= this.maxConsecutiveRequestFailures) {
+      this.requestStick.set(cssPath, { err, until: Date.now() + REQUEST_STICKY_BACKOFF_MS })
+    }
     return err
   }
 
@@ -172,8 +254,19 @@ export class DesignSystemWorker<Req, Res> {
    * cssPath rethrow without retrying.
    */
   private ensure(cssPath: string): ReadyState {
+    // HARD sticky (init/spawn/crash/DS-load): never retried in this process.
     const sticky = this.errors.get(cssPath)
     if (sticky) throw sticky
+
+    // SOFT sticky (per-request budget spent, #145): fast-fail until the backoff
+    // window elapses, then clear it and let one attempt through — a success then
+    // resets the budget, so a long-lived process self-heals.
+    const soft = this.requestStick.get(cssPath)
+    if (soft) {
+      if (Date.now() < soft.until) throw soft.err
+      this.requestStick.delete(cssPath)
+      this.requestFailCount.delete(cssPath)
+    }
 
     const existing = this.workers.get(cssPath)
     if (existing) {
@@ -307,19 +400,24 @@ export class DesignSystemWorker<Req, Res> {
     Atomics.store(state.controlArray, 0, 1)
     Atomics.notify(state.controlArray, 0)
 
-    const result = Atomics.wait(state.controlArray, 1, 0, REQUEST_TIMEOUT)
+    const result = Atomics.wait(state.controlArray, 1, 0, this.requestTimeoutMs)
     if (result === 'timed-out') {
-      // Per-request failure (#130): drop the worker so the next call re-spawns
-      // and retries, but do NOT remember() it as sticky. A request-level failure
-      // is a property of one input, not of the entry point — making it sticky
-      // (as init failures are) let one malformed/transient input permanently
-      // disable the rule for the whole cssPath until the process restarted.
-      // Mirrors the already-non-sticky "payload too large" branch above.
-      this.dropWorker(cssPath)
-      throw new SortServiceError(
-        `${this.opts.serviceName} worker request timed out after ${REQUEST_TIMEOUT}ms.`,
-        // Fixed internal limit, not settings.tailwindcss.timeout.
-        'This is unexpected for typical class lists; please open an issue if it persists.',
+      // Per-request failure: bounded drop-and-retry (#145). A timeout is usually
+      // a property of the MACHINE, not the input — a machine slow enough to time
+      // out once times out again, and dropWorker resets the DS to cold, so an
+      // unbounded retry re-pays the full timeout on every remaining class list
+      // (O(files)). failRequest goes soft-sticky after a few consecutive
+      // failures so the rest of the run fails fast. If the machine is merely
+      // slow, raise OXLINT_TAILWINDCSS_WORKER_REQUEST_TIMEOUT so the request
+      // completes instead of failing.
+      throw this.failRequest(
+        cssPath,
+        new SortServiceError(
+          `${this.opts.serviceName} worker request timed out after ${this.requestTimeoutMs}ms.`,
+          // Not settings.tailwindcss.timeout (that governs the precompute loader
+          // only); raise OXLINT_TAILWINDCSS_WORKER_REQUEST_TIMEOUT instead.
+          'A slow machine or CI runner can cause this. If the class lists are valid, raise OXLINT_TAILWINDCSS_WORKER_REQUEST_TIMEOUT; otherwise please open an issue.',
+        ),
       )
     }
 
@@ -331,28 +429,36 @@ export class DesignSystemWorker<Req, Res> {
     try {
       parsed = JSON.parse(responseStr)
     } catch (cause) {
-      // Per-request failure (#130): drop-and-retry, not sticky. See the
-      // request-timeout branch above for the rationale.
-      this.dropWorker(cssPath)
-      throw new SortServiceError(
-        `${this.opts.serviceName} worker returned non-JSON response.`,
-        'This is a bug; please open an issue.',
-        { cause: cause instanceof Error ? cause : undefined },
+      // Per-request failure: bounded drop-and-retry (#145). See the request-
+      // timeout branch above for the rationale.
+      throw this.failRequest(
+        cssPath,
+        new SortServiceError(
+          `${this.opts.serviceName} worker returned non-JSON response.`,
+          'This is a bug; please open an issue.',
+          { cause: cause instanceof Error ? cause : undefined },
+        ),
       )
     }
 
     if (parsed === null) {
-      // Per-request failure (#130): drop-and-retry, not sticky. After the
-      // handler guards land, the only realistic cause here is an oversized
-      // response (the response-side twin of "payload too large"), so a later
-      // request with different input must be free to succeed, not rethrow.
-      this.dropWorker(cssPath)
-      throw new SortServiceError(
-        `${this.opts.serviceName} worker returned null — the request body was rejected or its response did not fit the buffer.`,
-        'This is a bug; please open an issue with the input that triggered it.',
+      // Per-request failure: bounded drop-and-retry (#145). After #132's handler
+      // guards the only realistic cause is an oversized response, so a later
+      // request with different input must be free to succeed — but repeated
+      // failures still go soft-sticky so the run doesn't stall.
+      throw this.failRequest(
+        cssPath,
+        new SortServiceError(
+          `${this.opts.serviceName} worker returned null — the request body was rejected or its response did not fit the buffer.`,
+          'This is a bug; please open an issue with the input that triggered it.',
+        ),
       )
     }
 
+    // Success clears any per-request failure budget / soft sticky for this
+    // cssPath (#145), so failures spread across a long run never accumulate.
+    this.requestFailCount.delete(cssPath)
+    this.requestStick.delete(cssPath)
     return parsed as Res
   }
 
@@ -360,6 +466,8 @@ export class DesignSystemWorker<Req, Res> {
     for (const state of this.workers.values()) this.terminateWorker(state.worker)
     this.workers.clear()
     this.errors.clear()
+    this.requestFailCount.clear()
+    this.requestStick.clear()
   }
 
   /** Terminate and forget the worker for a single cssPath (on request failure). */

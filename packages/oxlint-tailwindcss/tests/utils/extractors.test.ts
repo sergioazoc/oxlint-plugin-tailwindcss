@@ -1,6 +1,8 @@
 import type { ESTree } from '@oxlint/plugins'
 import { describe, expect, it } from 'vitest'
 import {
+  DEFAULT_EXTRACTOR_CONFIG,
+  type ExtractorConfig,
   extractFromCallExpression,
   extractFromJSXAttribute,
   extractFromTaggedTemplate,
@@ -117,5 +119,54 @@ describe('extractor origin (issue #117)', () => {
     const locs = extractFromVariableDeclarator(declarator)
     expect(locs).toHaveLength(1)
     expect(locs[0].origin).toBe('variable')
+  })
+})
+
+/**
+ * Issue #134: `attributePatterns` matches JSX attribute NAMES by regex, additive
+ * to the exact `attributes` list — so `*ClassName` conventions (React Native /
+ * Uniwind) are caught without listing every prop.
+ */
+describe('attributePatterns — regex JSX attribute matching (#134)', () => {
+  const withPatterns = (patterns: RegExp[]): ExtractorConfig => ({
+    ...DEFAULT_EXTRACTOR_CONFIG,
+    attributePatterns: patterns,
+  })
+  const namedAttr = (attrName: string, value: string): ESTree.JSXAttribute => {
+    const a = {
+      type: 'JSXAttribute',
+      name: { type: 'JSXIdentifier', name: attrName },
+      value: { type: 'Literal', value, range: RANGE },
+    } as unknown as ESTree.JSXAttribute
+    ;(a as unknown as { parent: unknown }).parent = {
+      type: 'JSXOpeningElement',
+      name: { type: 'JSXIdentifier', name: 'ScrollView' },
+    }
+    return a
+  }
+
+  it('extracts a *ClassName prop matched by a pattern', () => {
+    const locs = extractFromJSXAttribute(
+      namedAttr('contentContainerClassName', 'p-4'),
+      withPatterns([/ClassName$/]),
+    )
+    expect(locs).toHaveLength(1)
+    expect(locs[0].value).toBe('p-4')
+  })
+
+  it('ignores an attribute no pattern matches', () => {
+    expect(
+      extractFromJSXAttribute(namedAttr('data-foo', 'p-4'), withPatterns([/ClassName$/])),
+    ).toHaveLength(0)
+  })
+
+  it('is additive: the default exact `attributes` still match under a pattern', () => {
+    expect(
+      extractFromJSXAttribute(namedAttr('className', 'p-4'), withPatterns([/^tw[A-Z]/])),
+    ).toHaveLength(1)
+  })
+
+  it('matches nothing extra with the default empty patterns', () => {
+    expect(extractFromJSXAttribute(namedAttr('contentContainerClassName', 'p-4'))).toHaveLength(0)
   })
 })
