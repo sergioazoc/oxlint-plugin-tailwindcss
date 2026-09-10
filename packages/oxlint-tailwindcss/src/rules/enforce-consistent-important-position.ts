@@ -14,7 +14,7 @@ export const enforceConsistentImportantPosition = defineRule({
     type: 'suggestion',
     docs: {
       description:
-        'Enforce consistent position of the important (!) modifier. Default: suffix (Tailwind v4 canonical form). Note: using "prefix" may conflict with enforce-canonical which normalizes to suffix.',
+        'Enforce consistent position of the important (!) modifier. Default: suffix (Tailwind v4 canonical form). This rule is the single source of truth for ! placement — enforce-canonical preserves the position you wrote, so the two never conflict.',
     },
     fixable: 'code',
     schema: [

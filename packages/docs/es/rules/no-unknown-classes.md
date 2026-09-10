@@ -12,7 +12,7 @@ incluye una sugerencia y un quick-fix de editor para reemplazarla.
 El design system aquí significa **todo lo que Tailwind generaría para tu stylesheet**: las utilities
 core (`flex`, `bg-red-500`, `hover:underline`), cualquier token `@theme` que definiste (`bg-card`,
 `text-brand-foreground`), cualquier clase registrada por plugins (`prose`, `animate-in`, etc.), y
-cualquier CSS custom que escribiste inline.
+cualquier CSS personalizado que escribiste inline.
 
 DS-dependiente — requiere `settings.tailwindcss.entryPoint`. Cuando el design system no puede
 cargar, la regla emite un único diagnóstico fatal `designSystemUnavailable` por archivo en vez de
@@ -129,10 +129,10 @@ El prefijo se detecta automáticamente desde tu `entryPoint`; no hay nada extra 
 
 `string[]`, default `[]`.
 
-Nombres exactos de clases para whitelistear. Usa esto cuando la clase se genera en runtime (template
-strings que el plugin no puede resolver estáticamente) o cuando deliberadamente no es parte de tu
-design system pero quieres que sobreviva al linting. Los matches son literales — `"my-special"` no
-matchea `"hover:my-special"`.
+Nombres exactos de clases para incluir en la allowlist. Usa esto cuando la clase se genera en
+runtime (template strings que el plugin no puede resolver estáticamente) o cuando deliberadamente no
+es parte de tu design system pero quieres que sobreviva al linting. Las coincidencias son literales
+— `"my-special"` no coincide con `"hover:my-special"`.
 
 ```jsonc
 { "tailwindcss/no-unknown-classes": ["error", { "allowlist": ["my-runtime-class", "legacy-button"] }] }

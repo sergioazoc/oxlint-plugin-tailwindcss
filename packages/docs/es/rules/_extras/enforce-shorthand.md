@@ -17,10 +17,10 @@ Un diagnóstico por grupo colapsable: los cuatro lados reportan `m-2` una vez, n
 mitades `my-2`/`mx-2`.
 
 `scale-x-*`+`scale-y-*` deliberadamente **no** es una familia. `scale-110` además escribe
-`--tw-scale-z`, que `scale-3d` lee, así que mergear cambiaría cómo renderiza
+`--tw-scale-z`, que `scale-3d` lee, así que fusionar cambiaría cómo renderiza
 `scale-x-110 scale-y-110 scale-3d`.
 
-### Con un `entryPoint`, el merge se comprueba contra el CSS
+### Con un `entryPoint`, la fusión se comprueba contra el CSS
 
 Tailwind v4 tiene namespaces de tema por eje: `w-*` lee `--width-*` (y `--container-*`), `h-*` lee
 `--height-*`, `size-*` lee `--size-*`. Con este tema
@@ -35,15 +35,15 @@ Tailwind v4 tiene namespaces de tema por eje: `w-*` lee `--width-*` (y `--contai
 `w-brand h-brand` → `size-brand` es destructivo: `size-brand` no existe, y el elemento pierde el
 ancho y el alto. Si configuras `settings.tailwindcss.entryPoint` (o el `entryPoint` propio de la
 regla), la regla compara las declaraciones que Tailwind emite — las partes tienen que resolver al
-mismo valor y el reemplazo tiene que reproducirlo — así que ese merge no se ofrece.
+mismo valor y el reemplazo tiene que reproducirlo — así que esa fusión no se ofrece.
 
-Los tokens de tema con nombre en la familia de sizing solo se mergean cuando los valores son
+Los tokens de tema con nombre en la familia de sizing solo se fusionan cuando los valores son
 literalmente idénticos. `w-card h-card` se deja como está incluso si los tres namespaces definen
 `card` como `30rem`, porque cada lado lee una variable distinta y un override en `:root` de una de
 ellas las separa — el mismo razonamiento que [`enforce-canonical`](./enforce-canonical) aplica a
 `rounded-[0.5rem]` → `rounded-lg`.
 
-Sin entry point la regla mantiene los merges que son seguros diga lo que diga el tema: números y
+Sin entry point la regla mantiene las fusiones que son seguras diga lo que diga el tema: números y
 fracciones (la escala de spacing compartida), valores arbitrarios (el mismo literal a los dos
 lados), las keywords del core (`full`, `auto`, `min`, `max`, `fit`, `px` y las unidades de
 viewport), y todas las familias que no son sizing — esas beben de un único namespace.
@@ -53,7 +53,7 @@ viewport), y todas las familias que no son sizing — esas beben de un único na
 ### `entryPoint`
 
 `string`, opcional. Un entry point CSS solo para esta regla, que pisa
-`settings.tailwindcss.entryPoint`. Se usa únicamente para verificar los merges contra el CSS
+`settings.tailwindcss.entryPoint`. Se usa únicamente para verificar las fusiones contra el CSS
 emitido; la regla funciona sin él.
 
 ## Ejemplos
@@ -112,7 +112,7 @@ emitido; la regla funciona sin él.
 // Dos lados adyacentes no son un eje
 <div className="top-0 right-0" />
 
-// Variants distintas — la regla no mergea cruzando cadenas de variants
+// Variants distintas — la regla no fusiona cruzando cadenas de variants
 <div className="hover:mt-2 focus:mb-2" />
 ```
 
@@ -126,7 +126,7 @@ emitido; la regla funciona sin él.
   `border-s-*`+`border-e-*` → `border-x-*`, `start-*`+`end-*` → `inset-x-*`) caen en utilities de
   eje que ninguna regla direccional convierte, así que las dos nunca se pelean.
 - **`enforce-consistent-important-position`**: el shorthand respeta la convención de posición del
-  `!` de las clases mergeadas. Si las cuatro usan prefijo, el shorthand queda con prefijo; lo mismo
+  `!` de las clases fusionadas. Si las cuatro usan prefijo, el shorthand queda con prefijo; lo mismo
   para sufijo.
 
 ## Cuándo desactivarla

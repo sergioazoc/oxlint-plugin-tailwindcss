@@ -3,6 +3,7 @@ import { createExtractorVisitors, type ClassLocation } from '../utils/extractors
 import { splitClassesWithSeparators } from '../utils/class-splitter'
 import { reportClassReplacements } from '../utils/report'
 import {
+  convertVarSyntax,
   reattachImportant,
   splitImportant,
   splitUtilityAndVariant,
@@ -123,6 +124,7 @@ export const enforceCanonical = defineRule({
           if (!dynamic) return // worker fatal already reported; stop the check
           for (let k = 0; k < arbitrary.length; k++) {
             const { canonical, safe } = dynamic[k]
+            const idx = arbitraryIdx[k]
             // #78: only rewrite when the canonical form is CSS-value-equivalent.
             // `canonicalizeCandidates` matches an arbitrary literal (e.g.
             // `rounded-[4px]` = `4px`) against the compile-time theme, so it
@@ -130,9 +132,23 @@ export const enforceCanonical = defineRule({
             // `var(--radius-lg)`) that a `:root` override makes NON-equivalent —
             // autofixing that silently corrupts the design. When the emitted CSS
             // isn't byte-identical the conversion is left as the user wrote it.
-            canonicals[arbitraryIdx[k]] = safe
-              ? preserveImportantPosition(arbitrary[k], canonical)
-              : arbitrary[k]
+            if (!safe) {
+              canonicals[idx] = arbitrary[k]
+              continue
+            }
+            const preserved = preserveImportantPosition(arbitrary[k], canonical)
+            // #152: when the ONLY change is the CSS-variable shorthand swap
+            // (`x-[var(--v)]` → `x-(--v)`), cede it to
+            // `enforce-consistent-variable-syntax` — the single owner of
+            // variable-syntax policy — exactly as the deprecated renames above
+            // are ceded to `no-deprecated-classes`. Otherwise both rules report
+            // the same fix, and under that rule's `explicit` mode they fight over
+            // it (autofix oscillation). Value-changing var canonicalizations
+            // (`rounded-[var(--radius-sm)]` → `rounded-sm`) and opacity-modifier
+            // forms (`text-[var(--c)]/90`) are NOT a shorthand swap — the helper
+            // returns null for them — so they stay this rule's business.
+            canonicals[idx] =
+              convertVarSyntax(arbitrary[k], 'shorthand') === preserved ? arbitrary[k] : preserved
           }
         }
 

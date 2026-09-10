@@ -5,10 +5,10 @@
 `sortTailwindcss` de [oxfmt](https://oxc.rs/docs/guide/usage/formatter). Las tres herramientas
 coinciden byte a byte **si leen el mismo CSS**.
 
-El catch: por defecto, prettier-plugin-tailwindcss (y oxfmt, que delega en él) lee el `theme.css`
+La salvedad: por defecto, prettier-plugin-tailwindcss (y oxfmt, que delega en él) lee el `theme.css`
 empacado dentro del paquete npm `tailwindcss` — **no el CSS de tu proyecto**. Si tu proyecto tiene
-un bloque `@theme { ... }` con tokens custom, oxfmt no se entera y su orden va a desacordar con
-`enforce-sort-order` en esos tokens.
+un bloque `@theme { ... }` con tokens personalizados, oxfmt no se entera y su orden va a discrepar
+con `enforce-sort-order` en esos tokens.
 
 ## El fix: alinear el stylesheet
 

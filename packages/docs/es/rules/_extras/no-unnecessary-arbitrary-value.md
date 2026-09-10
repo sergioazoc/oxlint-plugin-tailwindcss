@@ -10,8 +10,8 @@ primer hit, las sugerencias cubren el resto en el mismo string. Variants e `!` (
 preservan.
 
 El chequeo se dispara solo cuando hay un valor arbitrario en la utility (`hasArbitraryValue(cls)` es
-true) Y el cache devuelve un match en `getNamedEquivalent`. Eso mantiene la regla barata y enfocada
-— sin resolución fuzzy, sin round-trip al DS por cada clase.
+true) Y el cache devuelve una coincidencia en `getNamedEquivalent`. Eso mantiene la regla barata y
+enfocada — sin resolución fuzzy, sin round-trip al DS por cada clase.
 
 DS-dependiente — requiere `settings.tailwindcss.entryPoint`. Si el design system no puede cargar, la
 regla emite un único diagnóstico fatal `designSystemUnavailable` por archivo en vez de pasar en
@@ -19,9 +19,9 @@ silencio.
 
 ## Opciones
 
-Esta regla no tiene opciones propias más allá del override estándar `entryPoint` (string, defaultea
-a `settings.tailwindcss.entryPoint`). Configura el entry point en `settings.tailwindcss.entryPoint`
-para todo el proyecto en vez de por-regla cuando puedas.
+Esta regla no tiene opciones propias más allá del override estándar `entryPoint` (string, por
+defecto es `settings.tailwindcss.entryPoint`). Configura el entry point en
+`settings.tailwindcss.entryPoint` para todo el proyecto en vez de por-regla cuando puedas.
 
 ## Ejemplos
 
@@ -55,10 +55,12 @@ para todo el proyecto en vez de por-regla cuando puedas.
 ## Interacciones con otras reglas
 
 - **`enforce-canonical`**: complementaria, no hay doble-fire. Las dos actúan solo cuando la forma
-  arbitraria y su reemplazo nombrado emiten CSS **idéntico**; se reparten por forma. Esta regla es
-  dueña del caso directo arbitrario→nombrado (`h-[auto]` → `h-auto`, `bg-[var(--color-red-500)]` →
-  `bg-red-500`); `enforce-canonical` es dueña de los renombres canónicos y la normalización de
-  sintaxis de variables CSS. Las dos parten el espacio arbitrario→nombrado de forma limpia.
+  arbitraria y su reemplazo nombrado emiten CSS **idéntico**. Esta regla es dueña del caso directo
+  arbitrario→nombrado (`h-[auto]` → `h-auto`, `bg-[var(--color-red-500)]` → `bg-red-500`);
+  `enforce-canonical` es dueña de las canonicalizaciones donde el arbitrario mapea a una utility con
+  otro nombre (`rounded-[var(--radius-sm)]` → `rounded-sm`). Las dos parten el espacio
+  arbitrario→nombrado de forma limpia — y el swap simple `[var(--x)]` ↔ `(--x)` es de
+  `enforce-consistent-variable-syntax`, no de ninguna de las dos.
 - **`prefer-scale-token`**: dueña de lo que ninguna de las anteriores toca — un valor que solo es
   _numéricamente_ igual a un paso de la escala o a un token de tema (`p-[2px]` → `p-0.5`), cuyo
   texto CSS difiere (`calc(var(--spacing) * 0.5)` vs `2px`). Solo-reporte, apagada por defecto.
@@ -74,5 +76,5 @@ para todo el proyecto en vez de por-regla cuando puedas.
 - **A propósito mantienes valores arbitrarios por legibilidad** — algunos equipos prefieren
   `w-[200px]` a un alias de token cuando el valor es one-off o pixel-precise. Desactiva la regla y
   apóyate en `prefer-theme-tokens` + `enforce-canonical` para los casos que sí quieres marcar.
-- **Migrando desde otro toolchain** que generaba valores arbitrarios para todo — corrila como `warn`
-  hasta terminar el cleanup, después súbela a `error`.
+- **Migrando desde otro toolchain** que generaba valores arbitrarios para todo — ejecútala como
+  `warn` hasta terminar el cleanup, después súbela a `error`.

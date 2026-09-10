@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.12.0
+
+`enforce-canonical` and `enforce-consistent-variable-syntax` both rewrote the CSS-variable shorthand
+(`bg-[var(--x)]` → `bg-(--x)`, Tailwind's canonical form). With both rules enabled the same class
+produced two identical diagnostics, and under `enforce-consistent-variable-syntax`'s `explicit`
+setting the two autofixes fought each other. Their docs also claimed the rules didn't overlap. This
+release makes `enforce-canonical` cede the plain variable-syntax swap to the dedicated rule — the
+way it already cedes v3 renames to `no-deprecated-classes` — and corrects the documentation across
+the board ([#152](https://github.com/sergioazoc/oxlint-tailwindcss/issues/152), reported by @ftzi).
+
+### Bug fixes
+
+- **`enforce-canonical` no longer reports the pure CSS-variable shorthand swap.** When the only
+  canonicalization of a class would be `x-[var(--v)]` → `x-(--v)`, `enforce-canonical` now stays
+  silent and leaves it to `enforce-consistent-variable-syntax`, the single owner of variable-syntax
+  policy. This removes the duplicate diagnostic when both rules are on, and the autofix oscillation
+  under the dedicated rule's `explicit` mode. `enforce-canonical` still handles variable
+  canonicalizations that aren't a plain swap — a value that maps to a named token
+  (`rounded-[var(--radius-sm)]` → `rounded-sm`) or an opacity-modifier form
+  (`text-[var(--color-text)]/90` → `text-(--color-text)/90`).
+
+### Documentation
+
+- Corrected rule-page and README claims that had drifted from the code: the `enforce-canonical` ↔
+  `enforce-consistent-variable-syntax` overlap (#152); `enforce-canonical` examples that showed v3
+  renames it actually cedes to `no-deprecated-classes`; a false "conflict" between
+  `enforce-consistent-important-position` and `enforce-canonical` (canonical preserves the `!`
+  position you write); `no-deprecated-classes` described as needing no design system (it is
+  DS-optional); the DS-dependent / DS-optional rule lists; and the
+  `enforce-consistent-line-wrapping` default options.
+
 ## 1.11.1
 
 `no-contradicting-variants` flags a variant class as redundant when the same utility already applies

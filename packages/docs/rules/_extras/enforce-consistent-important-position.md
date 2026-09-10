@@ -15,17 +15,17 @@ it runs everywhere, including in projects that haven't wired up the design syste
 
 `'prefix' | 'suffix'`, default `'suffix'`.
 
-`'suffix'` is the Tailwind v4 canonical form (`flex!`, `hover:text-red!`) and matches what
-`enforce-canonical` would produce, so it's the recommended choice for new projects. `'prefix'` keeps
-the v3 form (`!flex`, `hover:!text-red`) — pick it only if your codebase is still on the v3 spelling
-and you don't want to migrate yet.
+`'suffix'` is the Tailwind v4 canonical form (`flex!`, `hover:text-red!`), so it's the recommended
+choice for new projects. `'prefix'` keeps the v3 form (`!flex`, `hover:!text-red`) — pick it only if
+your codebase is still on the v3 spelling and you don't want to migrate yet.
 
 ```jsonc
 { "tailwindcss/enforce-consistent-important-position": ["error", { "position": "suffix" }] }
 ```
 
-Note: setting `position: 'prefix'` will conflict with `enforce-canonical`, which normalizes to
-suffix. Use one or the other.
+Note: `enforce-canonical` preserves whichever `!` position you write (it does not normalize it), so
+either `position` value composes with it cleanly. This rule is the single source of truth for `!`
+placement.
 
 ## Examples
 
@@ -59,9 +59,9 @@ suffix. Use one or the other.
 
 ## Interactions with other rules
 
-- **`enforce-canonical`**: with `position: 'suffix'` (the default) the two rules agree. With
-  `position: 'prefix'` they fight — canonical rewrites suffix to its preferred form on every fix
-  pass. Stick with suffix unless you have a strong reason.
+- **`enforce-canonical`**: preserves the `!` position you write (prefix, suffix, or none) rather
+  than normalizing it, so it never fights this rule no matter which `position` you pick. This rule
+  is the single source of truth for `!` placement.
 - **`enforce-sort-order`**: order-independent of important position. Both prefix and suffix forms
   sort identically.
 - **`no-unknown-classes`**: looks up the bare utility, stripping `!` on either side, so neither form
@@ -71,5 +71,5 @@ suffix. Use one or the other.
 
 - **The codebase deliberately mixes both forms** (e.g. legacy v3 files alongside fresh v4 ones
   during a migration). Re-enable once the migration is done.
-- **You're already running `enforce-canonical`** and trust it to normalize `!` position as part of
-  canonicalization — leaving this rule on is harmless but redundant.
+- **You don't care about `!` position consistency.** No other rule enforces it — `enforce-canonical`
+  preserves whatever position you wrote — so disabling this one means `!` placement goes unchecked.

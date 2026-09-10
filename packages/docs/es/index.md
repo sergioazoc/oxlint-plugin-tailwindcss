@@ -25,7 +25,7 @@ features:
   - title: Nativo de Tailwind v4
     details: |
       Llama a `@tailwindcss/node` directamente para entender tus tokens
-      `@theme` custom, tus variables de shadcn, tu plugin de typography.
+      `@theme` personalizados, tus variables de shadcn, tu plugin de tipografía.
       Sin necesidad de mantener una config paralela.
   - title: Coexiste con oxfmt y Prettier
     details: |

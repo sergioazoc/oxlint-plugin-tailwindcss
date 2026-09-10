@@ -65,17 +65,27 @@ team prefiere la forma larga por grepability.
 
 ## Interacciones con otras reglas
 
-- **`enforce-canonical`**: no toca la sintaxis de variables. Canonical normaliza nombres de utility;
-  esta regla normaliza la forma de la variable. Las dos corren juntas sin problemas.
-- **`no-unnecessary-arbitrary-value`**: también apunta a valores arbitrarios pero para el caso del
-  equivalente nombrado (`bg-[#ff0000]` → `bg-red-500`). Disjunta de esta regla.
-- **`prefer-theme-tokens`**: cuando una variable CSS matchea un token `@theme`, esa regla swappea a
-  la utility nombrada (`bg-(--primary)` → `bg-primary` si `--primary` está declarado en `@theme`).
-  Ejecuta esa antes que esta si quieres las dos transformaciones.
+- **`enforce-canonical`**: esta regla es la única dueña de la sintaxis de variables. Como `bg-(--x)`
+  es la forma canónica de Tailwind, `enforce-canonical` reportaría el mismo swap `bg-[var(--x)]` →
+  `bg-(--x)`; en cambio, **cede** la conversión pura bracket↔paren a esta regla (igual que cede los
+  renombres de v3 a `no-deprecated-classes`). Eso evita un diagnóstico duplicado y, cuando esta
+  regla está en modo `explicit`, una pelea de autofix. `enforce-canonical` sigue manejando las
+  canonicalizaciones de variables que _no_ son un swap simple: un valor que mapea a un token
+  nombrado (`rounded-[var(--radius-sm)]` → `rounded-sm`) o una forma con modificador de opacidad
+  (`text-[var(--color-text)]/90` → `text-(--color-text)/90`).
+- **`no-unnecessary-arbitrary-value`**: en su mayoría disjunta — convierte un valor arbitrario a su
+  equivalente nombrado (`bg-[#ff0000]` → `bg-red-500`). Solo se solapan cuando el valor de una
+  variable coincide con una utility nombrada: sobre `bg-[var(--color-red-500)]` esa regla dispara (→
+  `bg-red-500`) y esta también (→ `bg-(--color-red-500)`). Proponen destinos distintos, así que
+  activa la que refleje tu política — o ejecuta `no-unnecessary-arbitrary-value` primero si
+  prefieres la utility nombrada.
+- **`prefer-theme-tokens`**: cuando una variable CSS coincide con un token `@theme`, esa regla
+  cambia a la utility nombrada (`bg-(--primary)` → `bg-primary` si `--primary` está declarado en
+  `@theme`). Ejecuta esa antes que esta si quieres las dos transformaciones.
 
 ## Cuándo desactivarla
 
-- **Apuntas a tooling más viejo que Tailwind v4**: la forma shorthand no está soportada. Seteá
+- **Apuntas a tooling más viejo que Tailwind v4**: la forma shorthand no está soportada. Configura
   `syntax: 'explicit'` en vez de desactivarla, así obtienes el rewrite en la dirección segura.
 - **Codebase con sintaxis mixta en plena migración** donde la consistencia todavía no es el
   objetivo.

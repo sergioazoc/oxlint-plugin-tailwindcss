@@ -3,7 +3,7 @@
 Tailwind v4 soporta dos sintaxis para el modificador `!important`: prefijo (`!flex`, la forma de la
 era v3) y sufijo (`flex!`, la forma canónica de v4). Las dos producen el mismo CSS, pero mezclarlas
 dentro de un proyecto deja el codebase inconsistente y rompe el copy-paste entre archivos. Esta
-regla elige una posición y reescribe cada ofensor para que matchee. Autofix sobre el primer hit por
+regla elige una posición y reescribe cada ofensor para que coincida. Autofix sobre el primer hit por
 location, sugerencia de editor sobre los siguientes.
 
 DS-independiente — funciona sin `settings.tailwindcss.entryPoint`. Es una transformación de string
@@ -15,17 +15,17 @@ pura, así que corre en todos lados, incluyendo proyectos que todavía no cablea
 
 `'prefix' | 'suffix'`, default `'suffix'`.
 
-`'suffix'` es la forma canónica de Tailwind v4 (`flex!`, `hover:text-red!`) y matchea lo que
-produciría `enforce-canonical`, así que es la elección recomendada para proyectos nuevos. `'prefix'`
-mantiene la forma de v3 (`!flex`, `hover:!text-red`) — elegila solo si tu codebase todavía está en
-el spelling de v3 y no quieres migrar todavía.
+`'suffix'` es la forma canónica de Tailwind v4 (`flex!`, `hover:text-red!`), así que es la elección
+recomendada para proyectos nuevos. `'prefix'` mantiene la forma de v3 (`!flex`, `hover:!text-red`) —
+elígela solo si tu codebase todavía está en la grafía de v3 y no quieres migrar todavía.
 
 ```jsonc
 { "tailwindcss/enforce-consistent-important-position": ["error", { "position": "suffix" }] }
 ```
 
-Nota: setear `position: 'prefix'` va a entrar en conflicto con `enforce-canonical`, que normaliza a
-sufijo. Usa una o la otra.
+Nota: `enforce-canonical` preserva la posición del `!` que escribiste (no la normaliza), así que
+cualquier valor de `position` compone con él sin problemas. Esta regla es la única fuente de verdad
+para la posición del `!`.
 
 ## Ejemplos
 
@@ -59,9 +59,9 @@ sufijo. Usa una o la otra.
 
 ## Interacciones con otras reglas
 
-- **`enforce-canonical`**: con `position: 'suffix'` (el default) las dos reglas concuerdan. Con
-  `position: 'prefix'` se pelean — canonical reescribe a sufijo en cada pasada del fix. Quedate con
-  sufijo a menos que tengas una razón fuerte.
+- **`enforce-canonical`**: preserva la posición del `!` que escribiste (prefijo, sufijo o ninguno)
+  en vez de normalizarla, así que nunca se pelea con esta regla sin importar el `position` que
+  elijas. Esta regla es la única fuente de verdad para la posición del `!`.
 - **`enforce-sort-order`**: independiente de la posición del important. Tanto la forma prefijo como
   la sufijo ordenan igual.
 - **`no-unknown-classes`**: hace lookup de la utility bare, sacando `!` de cualquier lado, así que
@@ -71,5 +71,6 @@ sufijo. Usa una o la otra.
 
 - **El codebase mezcla las dos formas a propósito** (e.g. archivos legacy de v3 conviviendo con
   archivos frescos de v4 durante una migración). Reactívala cuando termine la migración.
-- **Ya estás corriendo `enforce-canonical`** y confías en que normalice la posición del `!` como
-  parte de la canonicalización — dejar esta regla activada es inocuo pero redundante.
+- **No te importa la consistencia de la posición del `!`.** Ninguna otra regla la impone —
+  `enforce-canonical` preserva la posición que hayas escrito — así que desactivar esta deja la
+  posición del `!` sin chequear.

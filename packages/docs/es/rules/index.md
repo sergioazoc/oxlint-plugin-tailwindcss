@@ -20,8 +20,7 @@ Reglas que atrapan problemas que generarían CSS inválido o inesperado.
 ## Modernización
 
 - [no-deprecated-classes](./no-deprecated-classes) — `flex-grow` → `grow`, etc.
-- [enforce-canonical](./enforce-canonical) — `-m-0` → `m-0`, `bg-gradient-to-r` → `bg-linear-to-r`,
-  etc.
+- [enforce-canonical](./enforce-canonical) — `-m-0` → `m-0`, `start-2` → `inset-s-2`, etc.
 - [no-unnecessary-arbitrary-value](./no-unnecessary-arbitrary-value) — `w-[100%]` → `w-full` cuando
   la clase nombrada emite CSS idéntico.
 - [prefer-theme-tokens](./prefer-theme-tokens) — `border-(--border)` → `border-border` cuando un
@@ -90,22 +89,22 @@ Funcionan sin nada configurado — su fallback es determinístico por sí solo �
 cuando hay un `entryPoint` disponible. Ninguna puede emitir `designSystemUnavailable`. Todas aceptan
 además un `entryPoint` propio que pisa el ajuste compartido.
 
-| Regla                       | Opciones por defecto                                | Qué aporta el design system                                     |
-| --------------------------- | --------------------------------------------------- | --------------------------------------------------------------- |
-| `consistent-variant-order`  | `{}` (orden derivado del DS cuando está disponible) | El orden real de variants, y qué hace el selector de cada una   |
-| `enforce-logical`           | `{ allowlist: [], direction: 'both' }`              | Confirma que la clase sugerida exista                           |
-| `enforce-physical`          | `{ allowlist: [], direction: 'both' }`              | Confirma que la clase sugerida exista                           |
-| `enforce-shorthand`         | `{}`                                                | Verifica cada merge contra el CSS emitido                       |
-| `no-contradicting-variants` | `{}`                                                | Qué hace el selector de cada variant                            |
-| `no-dark-without-light`     | `{ variants: ['dark'] }`                            | Agrupa la base por propiedad CSS declarada, no solo por prefijo |
-| `no-deprecated-classes`     | `{}`                                                | Deriva la lista de renombres en vez de usar la tabla interna    |
+| Regla                              | Opciones por defecto                                | Qué aporta el design system                                                                       |
+| ---------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `consistent-variant-order`         | `{}` (orden derivado del DS cuando está disponible) | El orden real de variants, y qué hace el selector de cada una                                     |
+| `enforce-consistent-line-wrapping` | `{ printWidth: 80, group: 'newLine' }`              | El prefix del proyecto, para que el agrupamiento de `wrapLines: 'all'` lo trate como transparente |
+| `enforce-logical`                  | `{ allowlist: [], direction: 'both' }`              | Confirma que la clase sugerida exista                                                             |
+| `enforce-physical`                 | `{ allowlist: [], direction: 'both' }`              | Confirma que la clase sugerida exista                                                             |
+| `enforce-shorthand`                | `{}`                                                | Verifica cada fusión contra el CSS emitido                                                        |
+| `no-contradicting-variants`        | `{}`                                                | Qué hace el selector de cada variant                                                              |
+| `no-dark-without-light`            | `{ variants: ['dark'] }`                            | Agrupa la base por propiedad CSS declarada, no solo por prefijo                                   |
+| `no-deprecated-classes`            | `{}`                                                | Deriva la lista de renombres en vez de usar la tabla interna                                      |
 
 ### Reglas DS-independientes
 
 | Regla                                   | Opciones por defecto            |
 | --------------------------------------- | ------------------------------- |
 | `enforce-consistent-important-position` | `{ position: 'suffix' }`        |
-| `enforce-consistent-line-wrapping`      | `{ printWidth: 80 }`            |
 | `enforce-consistent-variable-syntax`    | `{ syntax: 'shorthand' }`       |
 | `enforce-negative-arbitrary-values`     | (sin opciones)                  |
 | `max-class-count`                       | `{ max: 20 }`                   |

@@ -7,7 +7,7 @@
 Detecta utilities escritas con un prefijo negativo afuera de un bracket de valor arbitrario —
 `-top-[5px]`, `-translate-x-[10px]`, `-mt-[8px]` — y mueve el signo negativo adentro del bracket:
 `top-[-5px]`, `translate-x-[-10px]`, `mt-[-8px]`. El `-` exterior es redundante una vez que tienes
-un valor arbitrario, y meterlo adentro hace explícita la intención y matchea cómo
+un valor arbitrario, y meterlo adentro hace explícita la intención y coincide con cómo
 `@tailwindcss/node` canonicaliza la misma shape. El auto-fix corrige el primer hit, las sugerencias
 cubren el resto en el mismo string. Los variants (`hover:-mt-[8px]`) y el `!` (important, prefix o
 suffix) se preservan.

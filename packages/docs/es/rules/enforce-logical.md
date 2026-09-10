@@ -44,9 +44,9 @@ block.
 `string[]`, default `[]`.
 
 Patrones regex (compilados lazy, los inválidos se saltean en silencio). Las clases cuyo string
-completo matchee algún patrón bypassean el rewrite. Úsalo para casos puntuales donde genuinamente
-quieres dirección física — e.g. un ícono que siempre tiene que estar a la izquierda visual sin
-importar el writing direction.
+completo coincida con algún patrón bypassean el rewrite. Úsalo para casos puntuales donde
+genuinamente quieres dirección física — e.g. un ícono que siempre tiene que estar a la izquierda
+visual sin importar el writing direction.
 
 ```jsonc
 { "tailwindcss/enforce-logical": ["error", { "allowlist": ["^ml-icon$", "^rounded-tl-special$"] }] }
@@ -98,9 +98,9 @@ regla funciona sin él.
   va a autofixear en loop. Elige una según si tu app soporta RTL (usa `enforce-logical`) o es
   LTR-only (usa `enforce-physical`).
 - **`enforce-canonical`**: tiene opinión sobre los insets lógicos. Esta regla sugiere `start-2` (lo
-  que usan los docs de Tailwind); el design system reporta `inset-s-2` como el spelling canónico,
-  así que con las dos activas terminas ahí en dos pasadas. El CSS es el mismo en ambos casos, y
-  `enforce-physical` convierte los dos spellings de vuelta.
+  que usan los docs de Tailwind); el design system reporta `inset-s-2` como la grafía canónica, así
+  que con las dos activas terminas ahí en dos pasadas. El CSS es el mismo en ambos casos, y
+  `enforce-physical` convierte las dos grafías de vuelta.
 - **`enforce-shorthand`**: corre sobre shorthands `m-*` / `p-*` que ya son direction-neutral, así
   que las dos no se solapan.
 

@@ -46,8 +46,8 @@ eje block.
 `string[]`, default `[]`.
 
 Patrones regex (compilados lazy, los inválidos se saltean en silencio). Las clases cuyo string
-completo matchee algún patrón bypassean el rewrite. Útil cuando una utility lógica específica es
-intencional incluso en un codebase mayormente-LTR (e.g. un componente que sí tiene que soportar
+completo coincida con algún patrón bypassean el rewrite. Útil cuando una utility lógica específica
+es intencional incluso en un codebase mayormente-LTR (e.g. un componente que sí tiene que soportar
 RTL).
 
 ```jsonc

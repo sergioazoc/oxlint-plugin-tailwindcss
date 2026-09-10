@@ -54,9 +54,11 @@ for the whole project instead of per-rule whenever possible.
 
 - **`enforce-canonical`**: complementary, no double-fire. Both act only when the arbitrary form and
   its named replacement emit **identical** CSS. This rule owns the direct arbitrary→named case
-  (`h-[auto]` → `h-auto`, `bg-[var(--color-red-500)]` → `bg-red-500`); `enforce-canonical` owns
-  canonical renames and CSS-var syntax normalization. The two carve up the arbitrary→named space
-  cleanly.
+  (`h-[auto]` → `h-auto`, `bg-[var(--color-red-500)]` → `bg-red-500`); `enforce-canonical` owns the
+  canonicalizations where the arbitrary maps to a differently-named utility
+  (`rounded-[var(--radius-sm)]` → `rounded-sm`). The two carve up the arbitrary→named space cleanly
+  — and the plain `[var(--x)]` ↔ `(--x)` syntax swap is `enforce-consistent-variable-syntax`'s, not
+  either of theirs.
 - **`prefer-scale-token`**: owns what neither of the above touches — a value that is only
   _numerically_ equal to a scale step or theme token (`p-[2px]` → `p-0.5`), whose CSS text differs
   (`calc(var(--spacing) * 0.5)` vs `2px`). Report-only, off by default.

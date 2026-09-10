@@ -65,10 +65,20 @@ prefers the longer form for grepability.
 
 ## Interactions with other rules
 
-- **`enforce-canonical`**: doesn't touch variable syntax. Canonical normalizes utility names; this
-  rule normalizes the variable form. Both run together cleanly.
-- **`no-unnecessary-arbitrary-value`**: also targets arbitrary values but for the named-equivalent
-  case (`bg-[#ff0000]` → `bg-red-500`). Disjoint from this rule.
+- **`enforce-canonical`**: this rule is the single owner of variable syntax. Because `bg-(--x)` is
+  Tailwind's canonical form, `enforce-canonical` would otherwise report the same `bg-[var(--x)]` →
+  `bg-(--x)` swap; instead it **cedes** the plain bracket↔paren conversion to this rule (the same
+  way it cedes v3 renames to `no-deprecated-classes`). That prevents a duplicate diagnostic and,
+  when this rule is set to `explicit`, an autofix fight. `enforce-canonical` still handles variable
+  canonicalizations that _aren't_ a plain swap — a value that maps to a named token
+  (`rounded-[var(--radius-sm)]` → `rounded-sm`) or an opacity-modifier form
+  (`text-[var(--color-text)]/90` → `text-(--color-text)/90`).
+- **`no-unnecessary-arbitrary-value`**: mostly disjoint — it converts an arbitrary value to its
+  named equivalent (`bg-[#ff0000]` → `bg-red-500`). They overlap only when a variable's value
+  matches a named utility: on `bg-[var(--color-red-500)]` that rule fires (→ `bg-red-500`) and this
+  one fires too (→ `bg-(--color-red-500)`). The two propose different targets, so enable the one
+  whose policy you want — or run `no-unnecessary-arbitrary-value` first if you prefer the named
+  utility.
 - **`prefer-theme-tokens`**: when a CSS variable matches a `@theme` token, that rule swaps to the
   named utility (`bg-(--primary)` → `bg-primary` if `--primary` is declared in `@theme`). Run that
   one before this one if you want both transforms.

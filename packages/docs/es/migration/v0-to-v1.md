@@ -2,7 +2,7 @@
 
 v1.0.0 alinea `oxlint-tailwindcss` con la filosofía de config determinista que el resto del
 ecosistema (prettier-plugin-tailwindcss, oxfmt, better-tailwindcss) ya sigue. El trade-off es un
-setting obligatorio a cambio de "configuralo una vez, no falla más".
+setting obligatorio a cambio de "configúralo una vez, no falla más".
 
 Esta página lista cada breaking change con un before/after lado a lado.
 
@@ -31,7 +31,7 @@ explícitamente.
 ### Monorepo con múltiples CSS
 
 ```jsonc
-// v0.x — array de strings, el plugin eligea el más cercano por path
+// v0.x — array de strings, el plugin elegía el más cercano por prefijo de ruta
 {
   "settings": {
     "tailwindcss": {
@@ -83,7 +83,7 @@ plugin estaba auto-detectando — necesitas declarar qué encontraba.
 v0.x saltaba reglas DS-dependientes silenciosamente cuando el design system no podía cargarse
 (faltaba `@tailwindcss/node`, CSS inválido, worker timeout, etc.).
 
-v1.0.0 surfacea fallas como un único diagnóstico `designSystemUnavailable` por archivo. El mensaje
+v1.0.0 expone las fallas como un único diagnóstico `designSystemUnavailable` por archivo. El mensaje
 embebe un hint accionable — usualmente la ruta exacta que el plugin intentó, o el timeout que se
 alcanzó.
 
@@ -93,7 +93,7 @@ El fix está en el hint.
 ## Removido: fallback heurístico de sort
 
 `enforce-sort-order` solía caer a un sort heurístico basado en prefix cuando su worker thread
-timeouteaba. Máquinas distintas podían producir output distinto para el mismo input.
+expiraba. Máquinas distintas podían producir output distinto para el mismo input.
 
 v1.0.0 remueve el fallback. Si el worker falla, la regla emite un diagnóstico fatal en lugar de
 adivinar.
@@ -111,7 +111,7 @@ v1.0.0 usa solo content hash — el mtime es un fast path in-memory dentro del p
 
 ## Cambiado: timeouts
 
-Defaults subidos para reducir failures espurios en hardware lento / CI:
+Defaults subidos para reducir fallas espurias en hardware lento / CI:
 
 | Constante                              | v0.x | v1.0.0 |
 | -------------------------------------- | ---- | ------ |
@@ -150,8 +150,8 @@ Para tener shape-parity con `enforce-logical`:
 - El nombre de cada regla, el `messageId` y los campos `data` están intactos. `enforce-sort-order`
   sigue emitiendo `unsorted`, `no-unknown-classes` sigue emitiendo `unknown`, etc.
 - Los patrones default del extractor (attributes, callees, tags, variable patterns) son los mismos.
-  Los settings custom `attributes`, `callees`, `tags`, `variablePatterns` y `exclude` funcionan como
-  antes.
+  Los ajustes personalizados `attributes`, `callees`, `tags`, `variablePatterns` y `exclude`
+  funcionan como antes.
 - La ruta del disk cache (`os.tmpdir()/oxlint-tailwindcss/`) es la misma.
 - Performance: el costo runtime por archivo es igual o ligeramente más rápido (menos branches de
   fallback).

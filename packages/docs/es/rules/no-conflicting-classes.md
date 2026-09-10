@@ -16,14 +16,14 @@ tratado a mano:
 - **el mismo valor en ambos lados** — `mask-b-from-50% mask-b-from-black` comparten cuatro
   declaraciones byte a byte idénticas, así que gane quien gane el resultado es el mismo;
 - **un reenviador `var()` y la clase que suministra la variable** — `outline-2` declara
-  `outline-style: var(--tw-outline-style)` y no aporta valor propio; el match es por el nombre real
-  de la variable, así que el `--scrollbar-*` de un plugin se comporta igual que el `--tw-*` de
-  Tailwind;
+  `outline-style: var(--tw-outline-style)` y no aporta valor propio; la coincidencia es por el
+  nombre real de la variable, así que el `--scrollbar-*` de un plugin se comporta igual que el
+  `--tw-*` de Tailwind;
 - **una ganadora que sigue arrastrando a la perdedora** — `drop-shadow-indigo-500` lee el
   `--tw-drop-shadow-size` que escribe `drop-shadow-xl`, y la cadena se sigue transitivamente (así
   compone `from-*` / `via-*` / `to-*`);
-- **una custom property reseteada a `initial`** — `animate-in` inicializa cada `--tw-enter-*` para
-  que sus modificadores la sobrescriban;
+- **una custom property restablecida a `initial`** — `animate-in` inicializa cada `--tw-enter-*`
+  para que sus modificadores la sobrescriban;
 - **declaraciones en cajas distintas** — `placeholder-*` estila `::placeholder`, `space-x-*` estila
   los hijos, y ninguna estila el elemento.
 
@@ -45,11 +45,11 @@ pasar en silencio.
 
 ## Opciones
 
-| Opción            | Tipo                             | Por defecto | Descripción                                                                                                                                                                                                                                                 |
-| ----------------- | -------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `reportRedundant` | `boolean`                        | `true`      | Reporta como `redundant` dos clases que declaran la misma propiedad con el mismo valor.                                                                                                                                                                     |
-| `allow`           | `(string \| [string, string])[]` | `[]`        | Patrones a silenciar, comparados con la clase **tal como está escrita** (prefijo de variante y `!` incluidos). Uno simple silencia cualquier par que involucre una clase que haga match; uno de dos elementos silencia esa combinación, en cualquier orden. |
-| `entryPoint`      | `string`                         | —           | Override por regla de `settings.tailwindcss.entryPoint`.                                                                                                                                                                                                    |
+| Opción            | Tipo                             | Por defecto | Descripción                                                                                                                                                                                                                                               |
+| ----------------- | -------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reportRedundant` | `boolean`                        | `true`      | Reporta como `redundant` dos clases que declaran la misma propiedad con el mismo valor.                                                                                                                                                                   |
+| `allow`           | `(string \| [string, string])[]` | `[]`        | Patrones a silenciar, comparados con la clase **tal como está escrita** (prefijo de variante y `!` incluidos). Uno simple silencia cualquier par que involucre una clase que coincida; uno de dos elementos silencia esa combinación, en cualquier orden. |
+| `entryPoint`      | `string`                         | —           | Override por regla de `settings.tailwindcss.entryPoint`.                                                                                                                                                                                                  |
 
 ```jsonc
 {

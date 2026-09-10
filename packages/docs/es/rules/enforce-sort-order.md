@@ -4,9 +4,10 @@
 
 ## Qué hace esta regla
 
-Ordena cada string de clases Tailwind en tu código para que matchee el orden oficial de Tailwind —
-el mismo orden que Tailwind usa al generar CSS, y el mismo que aplican `prettier-plugin-tailwindcss`
-y `oxfmt`. La regla tiene autofix: correr `oxlint --fix` reescribe el string in-place.
+Ordena cada string de clases Tailwind en tu código para que coincida con el orden oficial de
+Tailwind — el mismo orden que Tailwind usa al generar CSS, y el mismo que aplican
+`prettier-plugin-tailwindcss` y `oxfmt`. La regla tiene autofix: correr `oxlint --fix` reescribe el
+string in-place.
 
 DS-dependiente — requiere `settings.tailwindcss.entryPoint`. El sort exacto lo computa la API de
 class-order de `@tailwindcss/node` contra tu stylesheet, así que tokens de theme, plugins y
@@ -43,8 +44,8 @@ la que está construido el modo — `'default'` le pide al worker la respuesta r
 `string`, opcional.
 
 Override por regla de `settings.tailwindcss.entryPoint`. Útil en el caso raro donde esta regla
-necesita leer un stylesheet distinto al del resto del plugin (e.g. aplicas scope a el sort a una
-sub-app). Casi nadie lo necesita — define el entry point una vez en `settings` y olvídate.
+necesita leer un stylesheet distinto al del resto del plugin (e.g. acotas el sort a una sub-app).
+Casi nadie lo necesita — define el entry point una vez en `settings` y olvídate.
 
 ## Ejemplos
 
@@ -96,8 +97,8 @@ sub-app). Casi nadie lo necesita — define el entry point una vez en `settings`
   rule budget reducido — el formatter ya hace este trabajo byte-por-byte. Dejar ambas activadas está
   bien (no hay conflictos), es solo trabajo redundante.
 - **Trabajando en un codebase que ordena clases a propósito por intent de autoría** (e.g.
-  agrupamiento visual que no matchea la prioridad de Tailwind). Desactívala localmente en vez de
-  globalmente si es una preferencia por componente.
+  agrupamiento visual que no coincide con la prioridad de Tailwind). Desactívala localmente en vez
+  de globalmente si es una preferencia por componente.
 
 > **Caveat de `tailwind-merge`.** `tailwind-merge` resuelve un grupo de conflicto conservando la
 > _última_ aparición en el string. Si un mismo string de clases contiene dos clases del mismo grupo

@@ -90,8 +90,8 @@ legítimos a `allow` en vez de desactivar la regla entera.
   nombrado exacto (`w-[100%]` → `w-full`). Pueden coexistir: la suave autofixea los casos triviales
   y esta atrapa lo que queda.
 - **`prefer-theme-tokens`**: misma intención, pero DS-dependiente. `prefer-theme-tokens` consulta tu
-  `@theme` y sugiere el token que matchea. Combínalas: esta regla es tu freno de mano cuando todavía
-  no existe el token.
+  `@theme` y sugiere el token que coincide. Combínalas: esta regla es tu freno de mano cuando
+  todavía no existe el token.
 - **`enforce-consistent-variable-syntax`**: convierte entre `bg-[var(--x)]` y `bg-(--x)`. Como las
   dos formas se reportan acá, correrla — en cualquier dirección — no puede sacar una clase del
   alcance de esta regla.
@@ -99,7 +99,7 @@ legítimos a `allow` en vez de desactivar la regla entera.
 ## Cuándo desactivarla
 
 - **Prototipos / branches de spike** donde la velocidad le gana a la disciplina. Reactívala antes de
-  mergear.
+  integrar.
 - **Archivos que genuinamente necesitan un arbitrary value** (landing pages one-off, shims de
   CSS-in-JS dinámico). Prefiere `allow` con una lista corta de prefijos, o desactiva por línea con
   `// oxlint-disable-next-line tailwindcss/no-arbitrary-value`.

@@ -20,8 +20,7 @@ These rules catch problems that would generate invalid or unexpected CSS.
 ## Modernization
 
 - [no-deprecated-classes](./no-deprecated-classes) — `flex-grow` → `grow`, etc.
-- [enforce-canonical](./enforce-canonical) — `-m-0` → `m-0`, `bg-gradient-to-r` → `bg-linear-to-r`,
-  etc.
+- [enforce-canonical](./enforce-canonical) — `-m-0` → `m-0`, `start-2` → `inset-s-2`, etc.
 - [no-unnecessary-arbitrary-value](./no-unnecessary-arbitrary-value) — `w-[100%]` → `w-full` when
   the named class emits identical CSS.
 - [prefer-theme-tokens](./prefer-theme-tokens) — `border-(--border)` → `border-border` when a named
@@ -90,22 +89,22 @@ These work with nothing configured — their fallback is deterministic on its ow
 accurate when an `entryPoint` is available. None of them can emit `designSystemUnavailable`. Each
 also accepts a rule-level `entryPoint` that overrides the shared setting.
 
-| Rule                        | Default options                        | What the design system adds                                  |
-| --------------------------- | -------------------------------------- | ------------------------------------------------------------ |
-| `consistent-variant-order`  | `{}` (DS-derived order when available) | Real variant order, and what each variant's selector does    |
-| `enforce-logical`           | `{ allowlist: [], direction: 'both' }` | Confirms the suggested class exists                          |
-| `enforce-physical`          | `{ allowlist: [], direction: 'both' }` | Confirms the suggested class exists                          |
-| `enforce-shorthand`         | `{}`                                   | Verifies each merge against the emitted CSS                  |
-| `no-contradicting-variants` | `{}`                                   | What each variant's selector does                            |
-| `no-dark-without-light`     | `{ variants: ['dark'] }`               | Groups the base by declared CSS property, not just by prefix |
-| `no-deprecated-classes`     | `{}`                                   | Derives the rename list instead of using the built-in table  |
+| Rule                               | Default options                        | What the design system adds                                                 |
+| ---------------------------------- | -------------------------------------- | --------------------------------------------------------------------------- |
+| `consistent-variant-order`         | `{}` (DS-derived order when available) | Real variant order, and what each variant's selector does                   |
+| `enforce-consistent-line-wrapping` | `{ printWidth: 80, group: 'newLine' }` | The project prefix, so `wrapLines: 'all'` grouping treats it as transparent |
+| `enforce-logical`                  | `{ allowlist: [], direction: 'both' }` | Confirms the suggested class exists                                         |
+| `enforce-physical`                 | `{ allowlist: [], direction: 'both' }` | Confirms the suggested class exists                                         |
+| `enforce-shorthand`                | `{}`                                   | Verifies each merge against the emitted CSS                                 |
+| `no-contradicting-variants`        | `{}`                                   | What each variant's selector does                                           |
+| `no-dark-without-light`            | `{ variants: ['dark'] }`               | Groups the base by declared CSS property, not just by prefix                |
+| `no-deprecated-classes`            | `{}`                                   | Derives the rename list instead of using the built-in table                 |
 
 ### DS-independent rules
 
 | Rule                                    | Default options                 |
 | --------------------------------------- | ------------------------------- |
 | `enforce-consistent-important-position` | `{ position: 'suffix' }`        |
-| `enforce-consistent-line-wrapping`      | `{ printWidth: 80 }`            |
 | `enforce-consistent-variable-syntax`    | `{ syntax: 'shorthand' }`       |
 | `enforce-negative-arbitrary-values`     | (no options)                    |
 | `max-class-count`                       | `{ max: 20 }`                   |
