@@ -3,17 +3,24 @@
 Reordena los prefijos de variants dentro de una sola clase para que la cadena se escriba siempre
 igual. `hover:dark:bg-red` y `dark:hover:bg-red` producen el mismo CSS en Tailwind v4, pero un orden
 inconsistente ensucia grep, code reviews y diffs. Esta regla elige un orden canónico y reescribe
-todo para que matchee, con autofix sobre el primer ofensor y sugerencias de editor sobre el resto.
+todo para que coincida, con autofix sobre el primer ofensor y sugerencias de editor sobre el resto.
 
 Los pseudo-elements (`before`, `after`, `file`, `placeholder`, `selection`, `marker`, `backdrop`,
 `first-line`, `first-letter`, `details-content`) quedan siempre pinneados innermost — lo más cerca
 posible de la utility — porque en Tailwind v4 un pseudo-element puesto antes de una variant que
 selecciona elemento produce CSS roto del estilo `&::before { &>svg { … } }`.
 
+Con un entry point configurado, qué variants son esas surge de los selectores que genera el design
+system en lugar de esa lista fija, así que una variant que define tu proyecto también se maneja:
+`@custom-variant thumb (&::-webkit-slider-thumb)` queda pinneada innermost como `before:`, y
+`@custom-variant child (& > *)` se vuelve una barrera de reordenamiento porque mover una variant de
+estado a través de un combinador cambia qué elemento se selecciona.
+
 DS-opcional — cuando `settings.tailwindcss.entryPoint` está configurado, la regla usa la tabla de
-prioridad de variants del design system. Cuando no, cae a un orden estático built-in. Ambos
-fallbacks son determinísticos; esta es la única regla DS-dependiente que tolera silenciosamente un
-entry point faltante.
+prioridad de variants del design system y el comportamiento derivado de variants de arriba. Cuando
+no, cae a un orden estático built-in y la lista fija. Ambos caminos son determinísticos, y un entry
+point faltante se tolera silenciosamente (`no-contradicting-variants` es la otra regla que hace
+esto).
 
 ## Opciones
 
@@ -21,10 +28,10 @@ entry point faltante.
 
 `string[]`, opcional.
 
-Lista de prioridad custom. Los variants aparecen en el orden que listas; lo que no listas ordena
-después, en su posición original. Úsalo cuando tu team tiene un house style distinto al default de
-Tailwind (e.g. prefieres `dark:` outermost en toda cadena). El pin de pseudo-elements sigue
-aplicando sin importar dónde los pongas en tu lista.
+Lista de prioridad personalizada. Los variants aparecen en el orden que listas; lo que no listas
+ordena después, en su posición original. Úsalo cuando tu team tiene un house style distinto al
+default de Tailwind (e.g. prefieres `dark:` outermost en toda cadena). El pin de pseudo-elements
+sigue aplicando sin importar dónde los pongas en tu lista.
 
 ```jsonc
 {
@@ -87,7 +94,7 @@ proyecto; casi nunca se necesita.
 
 - **Confías en `prettier-plugin-tailwindcss` también para ordenar variants**: el formatter lo hace,
   la regla es redundante. Dejar ambas activadas es seguro pero es trabajo extra.
-- **Orden custom de variants que es difícil de expresar como una lista plana** (e.g. el orden
+- **Orden personalizado de variants que es difícil de expresar como una lista plana** (e.g. el orden
   depende de la utility): desactívala y confía en el review.
 - **Código generado** donde el orden de variants codifica un significado que no quieres que se
   reescriba.

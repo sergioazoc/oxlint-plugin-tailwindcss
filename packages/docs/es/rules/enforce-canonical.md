@@ -7,11 +7,12 @@
 Le pregunta al design system cuál es la forma canónica de cada utility en tu código y reescribe las
 que no lo son. "Canónico" es lo que devuelve `canonicalizeCandidates()` de `@tailwindcss/node` — la
 misma fuente de verdad que usan prettier-plugin-tailwindcss, oxfmt y las herramientas oficiales de
-Tailwind. Ejemplos: `-m-0` → `m-0` (no necesitas el negativo para un cero), `bg-gradient-to-r` →
-`bg-linear-to-r`, `break-words` → `wrap-break-word`, `start-2` → `inset-s-2`, `flex-grow-1` →
-`grow`, `flex-grow-[2]` → `grow-2` (un valor arbitrario cuya forma nombrada emite el mismo CSS),
+Tailwind. Ejemplos: `-m-0` → `m-0` (no necesitas el negativo para un cero), `start-2` → `inset-s-2`,
+`flex-grow-[2]` → `grow-2` (un valor arbitrario cuya forma nombrada emite el mismo CSS),
 `text-[var(--color-text)]/90` → `text-(--color-text)/90`. El auto-fix corrige el primer hit, las
-sugerencias cubren el resto en el mismo string.
+sugerencias cubren el resto en el mismo string. Los renombres de v3 (`bg-gradient-to-r` →
+`bg-linear-to-r`, `break-words` → `wrap-break-word`) son propiedad de `no-deprecated-classes`, no de
+esta regla — ver Interacciones.
 
 Las clases con nombre resuelven contra un `canonicalMap` precomputado en memoria (sub-microsegundo).
 Los valores arbitrarios (`p-[2px]`, `bg-(--c)`) pasan por el worker `canonicalize-service` porque
@@ -24,9 +25,9 @@ silencio.
 
 ## Opciones
 
-Esta regla no tiene opciones propias más allá del override estándar `entryPoint` (string, defaultea
-a `settings.tailwindcss.entryPoint`). Configura el entry point en `settings.tailwindcss.entryPoint`
-para todo el proyecto en vez de por-regla cuando puedas.
+Esta regla no tiene opciones propias más allá del override estándar `entryPoint` (string, por
+defecto es `settings.tailwindcss.entryPoint`). Configura el entry point en
+`settings.tailwindcss.entryPoint` para todo el proyecto en vez de por-regla cuando puedas.
 
 ## Ejemplos
 
@@ -36,9 +37,6 @@ para todo el proyecto en vez de por-regla cuando puedas.
 // El negativo-de-cero es simplemente cero
 <div className="-m-0 -mt-0" />
 
-// Spellings v3 que el canonicalize oficial reescribe
-<div className="bg-gradient-to-r break-words" />
-
 // Shorthand de inset lógico → canónico inset-s-* / inset-e-*
 <div className="start-2 end-4" />
 
@@ -46,7 +44,7 @@ para todo el proyecto en vez de por-regla cuando puedas.
 <div className="flex-grow-[2]" />
 
 // Variants e important se preservan
-<div className="hover:!break-words" />
+<div className="hover:!flex-grow-[2]" />
 ```
 
 ### ✓ Correcto
@@ -54,13 +52,11 @@ para todo el proyecto en vez de por-regla cuando puedas.
 ```tsx
 <div className="m-0 mt-0" />
 
-<div className="bg-linear-to-r wrap-break-word" />
-
 <div className="inset-s-2 inset-e-4" />
 
 <div className="grow-2" />
 
-<div className="hover:!wrap-break-word" />
+<div className="hover:!grow-2" />
 ```
 
 ## Interacciones con otras reglas
@@ -80,7 +76,7 @@ para todo el proyecto en vez de por-regla cuando puedas.
   reportaba dos veces con el mismo fix; el mensaje de la otra regla ("deprecada en v4") es el más
   accionable de los dos. Acá queda todo lo que es actual-pero-no-canónico: `-m-0` → `m-0`, `start-2`
   → `inset-s-2`, y las formas con valor arbitrario como `flex-grow-[2]` → `grow-2` (la lista de
-  renombres tiene spellings, no valores). Mantén ambas activas — con solo esta los renombres quedan
+  renombres tiene grafías, no valores). Mantén ambas activas — con solo esta los renombres quedan
   sin reportar.
 - **`prefer-scale-token`**: la mitad solo-reporte de lo que esta regla cedió en #78. Una reescritura
   cuyo CSS emitido difiere textualmente (`p-[10px]` → `p-2.5`, donde el token llega por

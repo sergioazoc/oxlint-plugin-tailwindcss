@@ -44,7 +44,7 @@ autofix es opt-in vía `wrapLines`.
 
 ### `wrapLines`
 
-`"overWidth" | "all"`, opcional. Sin default — igual que `classesPerLine`, dejarlo sin setear
+`"overWidth" | "all"`, opcional. Sin default — igual que `classesPerLine`, dejarlo sin establecer
 significa que el fixer está apagado y `printWidth` solo reporta.
 
 Activa el **autofix basado en el width** para template literals. Los dos modos difieren tanto en
@@ -76,7 +76,7 @@ regla, que mide cada fragmento estático por separado. Por eso una sola línea f
 mano con un fragmento corto junto a una interpolación ancha puede exceder `printWidth` sin ser
 reportada.
 
-`wrapLines` solo aplica cuando `classesPerLine` **no** está seteado — si no, `classesPerLine` es
+`wrapLines` solo aplica cuando `classesPerLine` **no** está establecido — si no, `classesPerLine` es
 dueño del layout.
 
 ```jsonc
@@ -123,9 +123,9 @@ Cantidad máxima de clases en una sola línea. Cuando se excede dentro de un tem
 `classesPerLine` por línea. Dentro de string literals (`"…"`) la regla reporta `tooManyPerLine` pero
 no autofixea — los string literals no pueden cruzar líneas con seguridad sin intervención manual.
 
-Setear `classesPerLine` cambia el fixer de template literals a este modo por chunks y apaga el fixer
-basado en el width (agrupado por variantes) — `printWidth` entonces solo reporta, y `wrapLines` se
-ignora.
+Establecer `classesPerLine` cambia el fixer de template literals a este modo por chunks y apaga el
+fixer basado en el width (agrupado por variantes) — `printWidth` entonces solo reporta, y
+`wrapLines` se ignora.
 
 ```jsonc
 { "tailwindcss/enforce-consistent-line-wrapping": ["error", { "classesPerLine": 5 }] }

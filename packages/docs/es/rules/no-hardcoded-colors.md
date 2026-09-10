@@ -10,14 +10,14 @@ que escribirías con un paint chip en la mano: hex (`bg-[#ff5733]`, `text-[#000]
 `hwb()`, y `color()`. La intención es la misma que `no-arbitrary-value` pero acotada exclusivamente
 al color, que es donde suele empezar el drift del design system.
 
-El valor se **escanea**, no se matchea desde su primer carácter, y la utility de la que cuelga es
+El valor se **escanea**, no se compara desde su primer carácter, y la utility de la que cuelga es
 irrelevante. Eso importa más de lo que parece:
 
 - un color en medio de un shorthand cuenta — `shadow-[0_1px_2px_#000]` es un negro hardcodeado;
 - también las utilities que ninguna lista de prefijos mantuvo al día — `inset-ring-[#000]`,
   `inset-shadow-[#000]`;
-- y también las propiedades arbitrarias, que ningún prefijo podría matchear — `[color:#f00]`,
-  `[--brand:#f00]`.
+- y también las propiedades arbitrarias, con las que ningún prefijo podría coincidir —
+  `[color:#f00]`, `[--brand:#f00]`.
 
 Hay dos exclusiones deliberadas, y son la razón de que esto sea un escáner y no un regex: un `#`
 dentro de un **string entre comillas** es texto (`content-['#fff']`), y un `#` dentro de **`url()`**
@@ -44,9 +44,9 @@ decisión humana.
 
 `string[]`, default `[]`.
 
-Strings exactos de clases para whitelistear. Los matches son literales (no hay prefix match ni
-regex), así que puedes permitir escapes puntuales sin abrir más la puerta. Útil para el hex
-ocasional mandado por brand en un único componente de assets.
+Strings exactos de clases para incluir en la allowlist. Las coincidencias son literales (no hay
+coincidencia por prefijo ni regex), así que puedes permitir escapes puntuales sin abrir más la
+puerta. Útil para el hex ocasional mandado por brand en un único componente de assets.
 
 ```jsonc
 {
@@ -109,7 +109,7 @@ ocasional mandado por brand en un único componente de assets.
   Usa `no-hardcoded-colors` sola cuando quieres el mensaje específico de color y toleras otros
   arbitrary values; usa ambas para un diagnóstico más claro sobre el drift de color.
 - **`prefer-theme-tokens`**: complementaria. `prefer-theme-tokens` le pregunta al design system si
-  existe un color `@theme` que matchee y lo sugiere; esta regla dispara igual exista o no el token,
+  existe un color `@theme` que coincida y lo sugiere; esta regla dispara igual exista o no el token,
   así que atrapa el drift más temprano (antes de definir el token).
 - **`no-unknown-classes`**: ortogonal. Los arbitrary hardcodeados son sintaxis _válida_ de Tailwind,
   así que `no-unknown-classes` no los va a marcar. Deberían estar ambas activas.

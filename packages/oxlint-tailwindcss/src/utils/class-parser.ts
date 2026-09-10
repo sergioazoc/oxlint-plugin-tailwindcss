@@ -221,6 +221,44 @@ export function reattachImportant(bare: string, position: ImportantPosition): st
   return bare
 }
 
+// Match `bg-[var(--something)]` — explicit var() wrapping a single CSS variable.
+const EXPLICIT_VAR_RE = /^([a-z][a-z0-9-]*(?:-[a-z0-9]+)*)-\[var\((--[a-zA-Z0-9-]+)\)\]$/
+// Match `bg-(--something)` — the Tailwind v4 shorthand.
+const SHORTHAND_VAR_RE = /^([a-z][a-z0-9-]*(?:-[a-z0-9]+)*)-\((--[a-zA-Z0-9-]+)\)$/
+
+/**
+ * Convert a class between the two CSS-variable syntaxes:
+ * `bg-[var(--x)]` (explicit) ↔ `bg-(--x)` (shorthand). Returns the converted
+ * class, or `null` when it isn't a simple single-variable utility.
+ *
+ * Deliberately narrow — it matches ONLY the bare-bracket form, so compound
+ * expressions (`bg-[color-mix(...)]`) and opacity-modifier forms
+ * (`text-[var(--c)]/90`, whose trailing `/90` fails the `$` anchor) return
+ * `null`. Variants and `!` position round-trip via `splitUtilityAndVariant` /
+ * `splitImportant`. This is the single set of classes over which
+ * `enforce-consistent-variable-syntax` (which owns the policy) and
+ * `enforce-canonical` (which cedes it) overlap, so both consume this one helper.
+ */
+export function convertVarSyntax(cls: string, syntax: 'shorthand' | 'explicit'): string | null {
+  const { utility, variant } = splitUtilityAndVariant(cls)
+  const { bare: bareUtility, position } = splitImportant(utility)
+
+  if (syntax === 'shorthand') {
+    const match = EXPLICIT_VAR_RE.exec(bareUtility)
+    if (match) {
+      const [, prefix, varName] = match
+      return `${variant}${reattachImportant(`${prefix}-(${varName})`, position)}`
+    }
+  } else {
+    const match = SHORTHAND_VAR_RE.exec(bareUtility)
+    if (match) {
+      const [, prefix, varName] = match
+      return `${variant}${reattachImportant(`${prefix}-[var(${varName})]`, position)}`
+    }
+  }
+  return null
+}
+
 /**
  * What a variant does to the selector, as reported by the design system.
  *

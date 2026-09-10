@@ -12,9 +12,9 @@ territorio de `no-contradicting-variants`). El fix preserva el whitespace que in
 La regla recorre la misma superficie de extracción que cualquier otra: atributos `className` /
 `class`, los 14 callees por defecto (`cn`, `clsx`, `cva`, `twMerge`, `tv`, `cx`, `classnames`,
 `ctl`, `twJoin`, `cc`, `clb`, `cnb`, `objstr`, `classed`), tagged templates como `` tw`...` ``,
-valores objeto en JSX (`classNames={ { root: "..." } }`) y variables que matchean los patrones de
-nombre por defecto (`className`, `classNames`, `classes`, `style`, `styles`). La extracción profunda
-para `cva` / `tv` / `classed` cubre `base`, `slots`, `variants`, `compoundVariants` y
+valores objeto en JSX (`classNames={ { root: "..." } }`) y variables que coinciden con los patrones
+de nombre por defecto (`className`, `classNames`, `classes`, `style`, `styles`). La extracción
+profunda para `cva` / `tv` / `classed` cubre `base`, `slots`, `variants`, `compoundVariants` y
 `compoundSlots`.
 
 ## Opciones

@@ -25,15 +25,16 @@ Una clase cuenta como base de dos maneras:
   `visible dark:invisible`, `uppercase dark:normal-case`, `truncate dark:text-clip` y
   `sr-only dark:not-sr-only`, que antes se reportaban todos.
 
-El chequeo por propiedad es **aditivo**: todo lo que ya matcheaba por prefijo sigue matcheando, así
-que configurar un entry point solo puede hacer que esta regla reporte menos, nunca más. Sin él cae
-al chequeo por prefijo más una tabla interna pequeña para `display` y `position` (para que
+El chequeo por propiedad es **aditivo**: todo lo que ya coincidía por prefijo sigue coincidiendo,
+así que configurar un entry point solo puede hacer que esta regla reporte menos, nunca más. Sin él
+cae al chequeo por prefijo más una tabla interna pequeña para `display` y `position` (para que
 `block dark:hidden` funcione), y por eso los pares de arriba siguen reportándose cuando no hay CSS
 configurado.
 
 El conjunto de "variantes observadas" es configurable. Por defecto es sólo `dark`, pero el mismo
 shape aplica a cualquier otra variante estilo scheme (`contrast-more`, `motion-reduce`, `print`,
-variantes custom de data-attribute que tengas registradas, etc.) — mira la opción `variants` abajo.
+variantes personalizadas de data-attribute que tengas registradas, etc.) — mira la opción `variants`
+abajo.
 
 ## Opciones
 
@@ -43,13 +44,13 @@ variantes custom de data-attribute que tengas registradas, etc.) — mira la opc
 
 Lista de variantes que requieren una base sin variante en el mismo prefijo de utility.
 Sobreescríbelo cuando tu app usa otro mecanismo para cambiar de theme (e.g. `contrast-more:` para un
-tema de alto contraste, o una variante custom `theme-foo:` definida en tu CSS).
+tema de alto contraste, o una variante personalizada `theme-foo:` definida en tu CSS).
 
 ```jsonc
 { "tailwindcss/no-dark-without-light": ["error", { "variants": ["dark", "contrast-more"] }] }
 ```
 
-Si seteas `variants` a un array vacío la regla se convierte en un no-op — prefiere desactivarla
+Si estableces `variants` a un array vacío la regla se convierte en un no-op — prefiere desactivarla
 directamente en ese caso.
 
 ### `entryPoint`
@@ -87,13 +88,13 @@ la regla funciona sin él.
 // No hay variante observada → la regla no se mete con la cobertura de base
 <div className="hover:bg-blue-500" />
 
-// Variante custom + base correspondiente
+// Variante personalizada + base correspondiente
 <div
   className="bg-white contrast-more:bg-black"
   // con options: [{ variants: ["contrast-more"] }]
 />
 
-// Un string sólo-dark dentro de un helper de merge o en un componente custom es
+// Un string sólo-dark dentro de un helper de merge o en un componente personalizado es
 // un fragmento de override — la base light vive en otro lado, así que NO se
 // reporta. Mira "Composición y helpers de merge" abajo.
 cn("dark:bg-gray-900")
@@ -129,8 +130,8 @@ la lista final: un literal (o template) usado directamente como `class`/`classNa
 host nativo** (`<div>`, `<input>`, …). **No** reporta strings que sean:
 
 - argumentos de una llamada merge-aware — `cn(...)`, `twMerge(...)`, `cva(...)`, `tv(...)`, etc.;
-- el `className`/`class` de un **componente custom** (`<Field …>`, `<Card.Body …>`), que es opaco —
-  el componente puede volver a fusionarlo internamente;
+- el `className`/`class` de un **componente personalizado** (`<Field …>`, `<Card.Body …>`), que es
+  opaco — el componente puede volver a fusionarlo internamente;
 - asignados a una variable, o emitidos desde un tagged template.
 
 El trade-off es deliberado: acepta algunos falsos negativos (una clase genuinamente sólo-dark
@@ -144,4 +145,4 @@ como obviamente correctos e invitan a una regresión de render.
   sacar `dark`) antes que desactivarla.
 - **Strings de clases servidas desde el server** en un elemento nativo donde la base vive en CSS y
   sólo el override dark se emite desde JS. (Los fragmentos de override que pasan por `cn`/`twMerge`
-  o por un componente custom ya se omiten — mira la sección de arriba.)
+  o por un componente personalizado ya se omiten — mira la sección de arriba.)

@@ -7,7 +7,7 @@ ya estructura su config.
 ## Patrón A — un solo config raíz con mapping de globs
 
 Un `.oxlintrc.json` en la raíz. `entryPoint` es un array de objetos `{ files, use }`, evaluados en
-orden de declaración; el primer glob que matchea el archivo lintado gana.
+orden de declaración; el primer glob que coincide con el archivo lintado gana.
 
 ```jsonc
 // /my-monorepo/.oxlintrc.json
@@ -34,7 +34,7 @@ Cuándo conviene:
 
 - Todos tus packages comparten las mismas reglas.
 - Quieres una sola fuente de verdad de qué se lintea cómo.
-- Ya estás usando `overrides` de oxlint para customización por regla en la raíz.
+- Ya estás usando `overrides` de oxlint para personalización por regla en la raíz.
 
 Un entry de fallback `"**"` al final es recomendado — sin él, cualquier archivo fuera de los globs
 explícitos va a fallar con `MissingEntryPointError`.
@@ -49,7 +49,7 @@ my-monorepo/
 ├── .oxlintrc.json                       # base de reglas (opcional entryPoint para archivos top-level)
 ├── packages/
 │   ├── ui/
-│   │   ├── .oxlintrc.json               # extends ../../.oxlintrc.json, setea entryPoint
+│   │   ├── .oxlintrc.json               # extends ../../.oxlintrc.json, define entryPoint
 │   │   ├── src/styles.css
 │   │   └── src/Button.tsx
 │   ├── admin/
@@ -109,7 +109,7 @@ encuentran strings de clases. No hace falta deshabilitar el plugin por archivo.
 
 Activa `settings.tailwindcss.debug` (o la variable `DEBUG=oxlint-tailwindcss`) y oxlint va a
 imprimir una línea por archivo mostrando qué CSS cargó el plugin para ese archivo. Útil cuando un
-glob matchea el mapping equivocado.
+glob coincide con el mapping equivocado.
 
 ## Motores de Tailwind por package
 
@@ -117,5 +117,5 @@ Para cada entry point CSS resuelto, el plugin carga el motor de Tailwind (`@tail
 el `node_modules` de ese package, así los packages fijados a versiones distintas de Tailwind se
 lintean cada uno con el motor con el que compilan. El guard de versión corre por package también —
 un motor más viejo que v4.1, un major futuro, o un drift de major respecto del build de ese package
-falla fuerte (ver [`allowUntestedEngine`](/es/settings#allowuntestedengine)). No tenés que hacer
+falla fuerte (ver [`allowUntestedEngine`](/es/settings#allowuntestedengine)). No tienes que hacer
 nada para esto; sigue la misma resolución de entry point por archivo de arriba.

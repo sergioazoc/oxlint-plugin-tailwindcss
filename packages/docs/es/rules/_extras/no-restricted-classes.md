@@ -2,7 +2,7 @@
 
 El veto manual. Te deja bloquear clases específicas de Tailwind — por nombre exacto o por patrón
 regex — y mostrar un mensaje configurable explicando por qué. Sin design system, sin heurísticas: si
-la clase matchea, la regla dispara.
+la clase coincide, la regla dispara.
 
 Usos típicos: dejar atrás utilities legacy que un refactor quiere sacar (`float-*` en codebases
 solo-flexbox), mantener un color de brand deprecado fuera del código nuevo, prohibir hacks de
@@ -20,9 +20,10 @@ Sin opciones, la regla es no-op. Configura al menos una de `classes` o `patterns
 
 `string[]`, default `[]`.
 
-Nombres exactos de clases a prohibir. Los matches son literales — `"hidden"` matchea la clase bare
-`hidden` y la misma clase en cualquier parte de un class string (`"flex hidden items-center"`), pero
-_no_ matchea `"sr-hidden"` ni `"hover:hidden"`. Úsalo para una ban list chica y explícita.
+Nombres exactos de clases a prohibir. Las coincidencias son literales — `"hidden"` coincide con la
+clase bare `hidden` y la misma clase en cualquier parte de un class string
+(`"flex hidden items-center"`), pero _no_ coincide con `"sr-hidden"` ni `"hover:hidden"`. Úsalo para
+una ban list chica y explícita.
 
 ```jsonc
 {
@@ -39,8 +40,8 @@ _no_ matchea `"sr-hidden"` ni `"hover:hidden"`. Úsalo para una ban list chica y
 Una lista de patrones regex (pasados como strings, compilados con `new RegExp`) con un mensaje
 opcional. Úsalo cuando quieres prohibir una familia entera (`^float-`, `^text-(red|orange)-`) o
 cuando una lista literal explotaría. Los patrones se testean contra la clase completa incluyendo
-variants, así que `^hover:bg-red-` matchea `hover:bg-red-500`. Los mensajes custom aparecen después
-del nombre de la clase y hacen que el diagnóstico sea accionable.
+variants, así que `^hover:bg-red-` coincide con `hover:bg-red-500`. Los mensajes personalizados
+aparecen después del nombre de la clase y hacen que el diagnóstico sea accionable.
 
 ```jsonc
 {
@@ -53,8 +54,8 @@ del nombre de la clase y hacen que el diagnóstico sea accionable.
 }
 ```
 
-Si una clase matchea tanto `classes` como un pattern, gana el match exacto y la regla reporta una
-sola vez. Si no, gana el primer pattern que matchea.
+Si una clase coincide tanto con `classes` como con un pattern, gana la coincidencia exacta y la
+regla reporta una sola vez. Si no, gana el primer pattern que coincide.
 
 ## Ejemplos
 
@@ -68,7 +69,7 @@ sola vez. Si no, gana el primer pattern que matchea.
 // Prohibida en el medio de un class string
 <div className="flex hidden items-center" />
 
-// Prohibida vía pattern con mensaje custom
+// Prohibida vía pattern con mensaje personalizado
 <div className="float-left" />
 // con patterns: [{ pattern: "^float-", message: "Usa flexbox" }]
 // → '"float-left" is restricted: Usa flexbox'
@@ -86,7 +87,7 @@ cn("float-right")
 // Clase fuera de la ban list
 <div className="flex items-center" />
 
-// El variant cambia la clase — `hover:hidden` no matchea `hidden`
+// El variant cambia la clase — `hover:hidden` no coincide con `hidden`
 <div className="hover:hidden" />
 ```
 

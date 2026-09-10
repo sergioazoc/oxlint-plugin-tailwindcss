@@ -100,7 +100,9 @@ That's it — the push fast-forwards `release` to `main` and `release.yml` takes
 ## Architecture
 
 oxlint plugin with 24 Tailwind CSS v4 linting rules. Uses `@oxlint/plugins`' `createOnce` API (runs
-once per lint session; returned visitors run on every matching AST node).
+once per lint session; returned visitors run on every matching AST node). This document covers the
+error-prone subsystems, not every rule; the canonical per-rule reference (all 24, with options and
+defaults) is `packages/docs/rules/index.md`.
 
 **v1.0.0 philosophy — deterministic, explicit, fail-loud.** The plugin used to auto-detect the CSS
 entry point, fall back to a module-level `lastLoadedPath`, and silently skip rules when the design
@@ -157,23 +159,31 @@ Core sync/async bridge: `@tailwindcss/node`'s `__unstable__loadDesignSystem` is 
    key, and the engine guard all independently agree on ONE engine per `cssPath` — no threading. In
    a monorepo, packages pinned to different Tailwind versions each get their own engine.
 
-DS-dependent rules: `no-unknown-classes`, `no-conflicting-classes`, `enforce-canonical`,
-`enforce-sort-order`, `no-unnecessary-arbitrary-value`, `prefer-theme-tokens`.
-`consistent-variant-order`, `no-contradicting-variants`, and `enforce-consistent-line-wrapping` are
-the DS-optional rules: their static fallbacks (variant order; the pseudo-element/barrier name lists
-plus the `display`/`visibility` property groups; and prefix-unaware variant-run grouping
-respectively) are themselves deterministic, so a missing entryPoint is tolerated silently — none may
-ever emit `designSystemUnavailable`. `no-contradicting-variants` also runs a **responsive-reset
-guard (#150)**: before flagging `V:util` redundant against an unconditional base `util`, it
-suppresses the report when a sibling with a DIFFERENT utility writes an overlapping CSS property
-(`md:hidden` overriding `display` between `block` and `lg:block`) — that variant is load-bearing,
-not redundant. Property source is `cache.getCssProperties` with an entryPoint, else the static
+DS-dependent rules (the 7 users of `safeGetDS`, which reports `designSystemUnavailable`):
+`no-unknown-classes`, `no-conflicting-classes`, `enforce-canonical`, `enforce-sort-order`,
+`no-unnecessary-arbitrary-value`, `prefer-scale-token`, `prefer-theme-tokens`. The **DS-optional**
+rules use `softGetDS` instead — they consult the DS when an entryPoint is configured but fall back
+to a deterministic static path when it isn't, so a missing entryPoint is tolerated silently and none
+may ever emit `designSystemUnavailable`. There are 8: `consistent-variant-order`,
+`no-contradicting-variants`, `enforce-consistent-line-wrapping`, `no-dark-without-light`,
+`enforce-shorthand`, `enforce-logical`, `enforce-physical` (these last two reach `softGetDS` through
+the shared directional mapper in `enforce-logical.ts`), and `no-deprecated-classes`.
+`consistent-variant-order`, `no-contradicting-variants`, and `enforce-consistent-line-wrapping` have
+static fallbacks (variant order; the pseudo-element/barrier name lists plus the
+`display`/`visibility` property groups; and prefix-unaware variant-run grouping respectively) that
+are themselves deterministic. `no-contradicting-variants` also runs a **responsive-reset guard
+(#150)**: before flagging `V:util` redundant against an unconditional base `util`, it suppresses the
+report when a sibling with a DIFFERENT utility writes an overlapping CSS property (`md:hidden`
+overriding `display` between `block` and `lg:block`) — that variant is load-bearing, not redundant.
+Property source is `cache.getCssProperties` with an entryPoint, else the static
 `display`/`visibility` groups; sibling scan skips `changesTarget` variants (other box) and
 same-utility siblings (same value). Strictly report-reducing, so it can never introduce a new false
 positive. `enforce-consistent-line-wrapping` consults the DS ONLY for the project prefix (so
 `wrapLines: 'all'` grouping treats `tw:` as transparent, matching the prefix invariant); everything
-else it does is DS-free. `no-deprecated-classes` is DS-independent outright (guard removed in #69):
-it consults only the hardcoded `DEPRECATED_MAP`, so it never loads the design system and never emits
+else it does is DS-free. `no-deprecated-classes` is DS-optional, not DS-independent (#69 removed the
+hard DS requirement, not DS use itself): with an entryPoint it prefers the richer rename map the
+precompute derives from `canonicalizeCandidates`, and falls back to the hardcoded `DEPRECATED_MAP`
+when none is configured. Because it goes through `softGetDS` it never emits
 `designSystemUnavailable`.
 
 ## Extraction System
@@ -197,6 +207,9 @@ the extractor config lazily from `settings.tailwindcss`.
 - `tags: string[]` — additional tagged template tags
 - `variablePatterns: string[]` — additional regex patterns for variable names (as strings, compiled
   to RegExp)
+- `attributePatterns: string[]` — regex patterns matched against JSX attribute NAMES (as strings,
+  compiled to RegExp; default `[]`, #134). Distinct from `variablePatterns`, which matches variable
+  names. Additive; not covered by `exclude`.
 - `exclude: { attributes?, callees?, tags?, variablePatterns? }` — remove specific items from
   defaults. For `variablePatterns`, exclusions match against `RegExp.source`.
 
@@ -239,6 +252,9 @@ AST visitors: `JSXAttribute`, `CallExpression`, `TaggedTemplateExpression`, `Var
   retain oxlint's strict `RuleContext`) catches plugin-fatal errors and reports
   `designSystemUnavailable`. Constants `DS_UNAVAILABLE_MESSAGE_ID` + `DS_UNAVAILABLE_MESSAGE` are
   spread into each rule's `meta.messages` so the messageId can't drift between rule and reporter.
+  `softGetDS(getDS)` is the quiet sibling: it returns the DS or `null`, swallowing the fatal instead
+  of reporting it — the mechanism every DS-optional rule uses to fall back to its static path (so
+  those rules never emit `designSystemUnavailable`).
 - **`utils/allowlist.ts`** — `compileRegexList(patterns)` + `matchesAny(value, list)`, shared
   between the directional rules.
 
@@ -511,8 +527,8 @@ AST visitors: `JSXAttribute`, `CallExpression`, `TaggedTemplateExpression`, `Var
   full init — tracking the path makes it genuinely sticky. On entry-point change it cleans up and
   re-inits. Failures throw `SortServiceError` — no silent fallback to heuristic sort or precomputed
   canonicalize.
-- **Suggestions API**: 11 rules provide `suggest` in `context.report()` for IDE quick-fixes. All use
-  `messageId: 'suggestReplace'` with `hasSuggestions: true` in meta. The 9 rules that emit
+- **Suggestions API**: 12 rules provide `suggest` in `context.report()` for IDE quick-fixes (the 12
+  with `hasSuggestions: true` in meta). All use `messageId: 'suggestReplace'`. The 9 rules that emit
   autofix-then-suggestions delegate the loop to `reportClassReplacements` in `utils/report.ts`.
 - **Directional rules** (`enforce-logical` ↔ `enforce-physical`): both consume
   `createDirectionalMapper(context, { mappings, messageId })` from `enforce-logical.ts`. The mapping

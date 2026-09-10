@@ -16,7 +16,7 @@ reconstruidos por `enforce-consistent-line-wrapping` se cuentan como el set de c
 por líneas visuales.
 
 DS-independiente — no necesita `entryPoint`. Sin autofix: extraer un componente requiere criterio
-que la regla no puede tomar por tú.
+que la regla no puede tomar por ti.
 
 ## Opciones
 
@@ -26,7 +26,7 @@ que la regla no puede tomar por tú.
 
 El máximo de clases permitidas en un solo elemento / llamada. La regla reporta cuando
 `classes.length > max` (es decir, el límite es inclusivo: `max: 20` permite _exactamente_ 20).
-Ajustalo al umbral de tu equipo para "esto ya es un componente".
+Ajústalo al umbral de tu equipo para "esto ya es un componente".
 
 ```jsonc
 { "tailwindcss/max-class-count": ["warn", { "max": 15 }] }
@@ -78,7 +78,7 @@ cn("flex items-center", "p-4 m-2 gap-2")
 ## Interacciones con otras reglas
 
 - **`no-duplicate-classes`**: si una clase está repetida, ambas reglas ven el conteo inflado.
-  Arreglá el duplicado primero — el conteo baja y esta regla puede dejar de disparar sola.
+  Arregla el duplicado primero — el conteo baja y esta regla puede dejar de disparar sola.
 - **`enforce-sort-order`** / **`enforce-consistent-line-wrapping`**: primas cosméticas. El contador
   es insensible al whitespace, así que el line-wrapping no cambia el veredicto.
 - **`enforce-canonical`**: colapsa pares redundantes (`-m-0` → `m-0`) antes de que esta regla corra,

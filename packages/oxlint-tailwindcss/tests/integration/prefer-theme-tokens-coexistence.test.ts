@@ -14,9 +14,8 @@
  *   │ rounded-[var(--radius-sm)] │ fires    │ fires       │ silent     │ (a)
  *   │ rounded-(--radius-sm)      │ fires    │ silent      │ silent     │ (b)
  *   │ bg-(--red-500)             │ silent   │ silent      │ fires      │ (c)
- *   │ bg-[var(--red-500)]        │ fires*   │ silent      │ fires      │ (d)
+ *   │ bg-[var(--red-500)]        │ silent   │ silent      │ fires      │ (d)
  *   └────────────────────────────┴──────────┴─────────────┴────────────┘
- *   *enforce-canonical only changes the bracket→paren syntax.
  *
  *   (a) Bracket form CSS-equivalent to the named utility — both canon and
  *       no-unnec produce `rounded-sm`. prefer-theme-tokens stays silent
@@ -26,8 +25,9 @@
  *       the same reason as (a).
  *   (c) Raw variable matching utility suffix — only prefer-theme-tokens catches
  *       it (canonicalizeCandidates only resolves theme-token names).
- *   (d) Bracket form of (c) — canonicalizeCandidates rewrites the syntax,
- *       prefer-theme-tokens rewrites to the named utility directly.
+ *   (d) Bracket form of (c) — canon's only change would be the bracket→paren
+ *       syntax, which #152 CEDES to enforce-consistent-variable-syntax, so canon
+ *       is silent; prefer-theme-tokens rewrites to the named utility directly.
  *
  * Theme-token matrix where `--color-X` exposes the raw variable directly
  * (e.g. `@theme inline { --color-border: var(--border); }`, no wrapping
@@ -37,13 +37,14 @@
  *   │ input                      │ canon    │ no-unnec    │ prefer-tt  │
  *   ├────────────────────────────┼──────────┼─────────────┼────────────┤
  *   │ border-(--border)          │ silent   │ silent      │ fires      │
- *   │ border-[var(--border)]     │ fires*   │ fires       │ silent     │
+ *   │ border-[var(--border)]     │ silent   │ fires       │ silent     │
  *   │ border-(--no-such-var)     │ silent   │ silent      │ silent     │
  *   └────────────────────────────┴──────────┴─────────────┴────────────┘
- *   *Only the bracket→paren syntax change. no-unnec fires because the
- *   bracket form is CSS-equivalent to border-border (both compile to
- *   `border-color: var(--border)`). prefer-tt stays silent on the bracket
- *   form thanks to its getNamedEquivalent guard — no-unnec owns it.
+ *   canon's only change would be the bracket→paren syntax, which #152 CEDES to
+ *   enforce-consistent-variable-syntax, so canon is silent here. no-unnec fires
+ *   because the bracket form is CSS-equivalent to border-border (both compile to
+ *   `border-color: var(--border)`). prefer-tt stays silent on the bracket form
+ *   thanks to its getNamedEquivalent guard — no-unnec owns it.
  */
 
 import { resolve } from 'node:path'
@@ -79,6 +80,10 @@ describe('prefer-theme-tokens coexistence (default theme)', () => {
       { code: '<div className="bg-red-500" />', filename: 'test.tsx' },
       // Variable name does not match a theme token — left as-is
       { code: '<div className="bg-(--red-500)" />', filename: 'test.tsx' },
+      // #152: bracket form whose only canonicalization is the syntax swap
+      // (`bg-[var(--red-500)]` → `bg-(--red-500)`) is CEDED to
+      // enforce-consistent-variable-syntax — enforce-canonical stays silent (d).
+      { code: '<div className="bg-[var(--red-500)]" />', filename: 'test.tsx' },
     ],
     invalid: [
       // Theme-token bracket → named (a)
@@ -94,13 +99,6 @@ describe('prefer-theme-tokens coexistence (default theme)', () => {
         filename: 'test.tsx',
         errors: [{ messageId: 'nonCanonical' }],
         output: '<div className="rounded-sm" />',
-      },
-      // Non-theme-token bracket → only the syntax canonicalizes (d)
-      {
-        code: '<div className="bg-[var(--red-500)]" />',
-        filename: 'test.tsx',
-        errors: [{ messageId: 'nonCanonical' }],
-        output: '<div className="bg-(--red-500)" />',
       },
     ],
   })
@@ -166,20 +164,16 @@ describe('prefer-theme-tokens coexistence (shadcn-style theme)', () => {
   // ── enforce-canonical ────────────────────────────────────────────
   // With this fixture, `--border` is NOT itself a theme token (`--color-border`
   // is, and it points to `--border`). canonicalizeCandidates therefore only
-  // changes the bracket→paren syntax — it does not produce border-border.
+  // changes the bracket→paren syntax — it does not produce border-border. #152:
+  // that pure syntax swap is CEDED to enforce-consistent-variable-syntax, so
+  // enforce-canonical stays silent on every form here.
   run('enforce-canonical (shadcn theme)', enforceCanonical, {
     valid: [
       { code: '<div className="border-(--border)" />', filename: 'test.tsx' },
       { code: '<div className="border-border" />', filename: 'test.tsx' },
+      { code: '<div className="border-[var(--border)]" />', filename: 'test.tsx' },
     ],
-    invalid: [
-      {
-        code: '<div className="border-[var(--border)]" />',
-        filename: 'test.tsx',
-        errors: [{ messageId: 'nonCanonical' }],
-        output: '<div className="border-(--border)" />',
-      },
-    ],
+    invalid: [],
   })
 
   // ── no-unnecessary-arbitrary-value ──────────────────────────────
@@ -219,17 +213,19 @@ describe('prefer-theme-tokens coexistence (shadcn-style theme)', () => {
 
 // Convergence property
 // ─────────────────────
-// Both rules + enforce-canonical converge on `border-border` regardless of
-// which fix oxlint applies first:
+// The rules still converge on `border-border` regardless of which fix oxlint
+// applies first:
 //
 //   border-[var(--border)]
 //     → no-unnec → border-border  (single step)
-//     → enforce-canonical → border-(--border) → prefer-tt → border-border
+//     → enforce-consistent-variable-syntax → border-(--border) → prefer-tt → border-border
 //
-// The valid/invalid blocks above lock down each rule's behavior on both the
-// intermediate (`border-(--border)`) and the input (`border-[var(--border)]`)
-// shapes, so any future regression that breaks convergence will fail one of
-// those test cases.
+// #152: enforce-canonical no longer produces the intermediate `border-(--border)`
+// (it cedes the bracket→paren syntax to enforce-consistent-variable-syntax), so
+// that step now belongs to the dedicated rule. The valid/invalid blocks above
+// lock down each rule's behavior on both the intermediate (`border-(--border)`)
+// and the input (`border-[var(--border)]`) shapes, so any future regression that
+// breaks convergence will fail one of those test cases.
 
 /**
  * The fourth rule joins on a premise none of the other three can host.

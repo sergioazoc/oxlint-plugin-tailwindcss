@@ -24,8 +24,8 @@ system genera de verdad para cada variante, así que cubre variantes que define 
 ninguna lista de nombres podría saber. Sin entry point la regla usa los nombres de arriba y se
 comporta igual que antes — nunca reporta que falte el design system.
 
-El match es por identidad exacta de la utility, así que `bg-white hover:bg-blue-500` queda intacto
-(valores distintos), igual que `flex hover:items-center` (utilities distintas).
+La coincidencia es por identidad exacta de la utility, así que `bg-white hover:bg-blue-500` queda
+intacto (valores distintos), igual que `flex hover:items-center` (utilities distintas).
 
 "La base aplica sin condiciones" sólo se sostiene cuando nada más pisa su propiedad. Una clase
 responsive que restablece una propiedad que un breakpoint intermedio le quitó es **load-bearing**,
@@ -101,7 +101,7 @@ es la lista de clases **final y autocontenida** del elemento. En una composició
 `tailwind-merge` — el patrón `cn`/`twMerge` + `cva` que usan los codebases estilo shadcn — un
 `className` suele ser un **fragmento de override** que se fusiona en runtime con clases aportadas en
 otro lado, muchas veces en otro módulo. Ahí la variante suele ser **load-bearing**: existe para
-ganarle a una clase del mismo grupo que el componente mergea desde su propio `cva`.
+ganarle a una clase del mismo grupo que el componente fusiona desde su propio `cva`.
 
 Toma `<Button className="bg-transparent hover:bg-transparent" />`, donde `Button` hace
 `twMerge(buttonVariants(), className)` y `buttonVariants()` aporta `hover:bg-accent`.
@@ -118,8 +118,8 @@ string que puede asegurar que es la lista final: un literal (o template) usado d
 que sean:
 
 - argumentos de una llamada merge-aware — `cn(...)`, `twMerge(...)`, `cva(...)`, `tv(...)`, etc.;
-- el `className`/`class` de un **componente custom** (`<Button …>`, `<Field.Root …>`), que es opaco
-  — el componente puede volver a fusionarlo internamente;
+- el `className`/`class` de un **componente personalizado** (`<Button …>`, `<Field.Root …>`), que es
+  opaco — el componente puede volver a fusionarlo internamente;
 - asignados a una variable, o emitidos desde un tagged template.
 
 El trade-off es deliberado: acepta algunos falsos negativos (un par genuinamente redundante
@@ -130,5 +130,5 @@ como obviamente correctos e invitan a una regresión de render.
 
 - **Generadores de código / class-name builders** en un elemento nativo que a propósito emiten una
   base y una variante con la misma utility. (Los fragmentos de override que pasan por `cn`/`twMerge`
-  o por un componente custom ya se omiten — mira la sección de arriba.)
+  o por un componente personalizado ya se omiten — mira la sección de arriba.)
 - **Snapshots / fixtures** que necesitan el par redundante para ejercitar tooling downstream.

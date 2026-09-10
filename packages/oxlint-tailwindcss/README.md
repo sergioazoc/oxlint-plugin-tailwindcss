@@ -3,7 +3,7 @@
 24 Tailwind CSS linting rules for [oxlint](https://oxc.rs/docs/guide/usage/linter). Built for
 Tailwind CSS v4 with deterministic config, typo suggestions, and autofixes.
 
-> **v1.0.0** — Upgrading from v0.x? See the
+> **v1** — Upgrading from v0.x? See the
 > **[migration guide](https://oxlint-tailwindcss.pages.dev/migration/v0-to-v1)**. The headline
 > change: `settings.tailwindcss.entryPoint` is now required.
 
@@ -222,17 +222,18 @@ Output:
 
 If no entry point is configured, the DS-dependent rules (`no-unknown-classes`,
 `no-conflicting-classes`, `enforce-canonical`, `enforce-sort-order`,
-`no-unnecessary-arbitrary-value`, `prefer-theme-tokens`) emit a single `designSystemUnavailable`
-diagnostic per file with an actionable hint — no more silent skips. `consistent-variant-order`
-tolerates a missing entryPoint (its static fallback is itself deterministic), and
-`no-deprecated-classes` needs no design system at all (it only consults a hardcoded v3→v4 rename
-map). All non-DS rules work without an entry point.
+`no-unnecessary-arbitrary-value`, `prefer-scale-token`, `prefer-theme-tokens`) emit a single
+`designSystemUnavailable` diagnostic per file with an actionable hint — no more silent skips.
+`consistent-variant-order` tolerates a missing entryPoint (its static fallback is itself
+deterministic), and `no-deprecated-classes` tolerates one too — it falls back to a hardcoded v3→v4
+rename map, and derives a richer map from the design system when an entry point is configured. All
+non-DS rules work without an entry point.
 
 ## Custom class detection
 
 By default the plugin detects Tailwind classes in `className`/`class` attributes, 14 utility
-functions (`cn`, `clsx`, `cva`, `tv`, `classed`, etc.), `tw` tagged templates, and variables named
-`className`/`classes`/`style`.
+functions (`cn`, `clsx`, `cva`, `tv`, `classed`, etc.), `tw` tagged templates, and variables whose
+names match `className`/`classNames`/`classes`/`style`/`styles`.
 
 You can extend these defaults via `settings.tailwindcss`. All values are **additive** — your custom
 entries are appended to the built-in defaults:
@@ -715,8 +716,9 @@ Handles variants correctly — the `!` is placed on the utility, not the variant
 | `position` | `"prefix"` \| `"suffix"` | `"suffix"` | Where to place the `!` modifier |
 
 > **Note:** The default is `"suffix"` to match Tailwind CSS v4's canonical form. The prefix form
-> (`!flex`) is deprecated in v4. Using `"prefix"` may conflict with `enforce-canonical`, which also
-> normalizes `!` to the suffix position.
+> (`!flex`) is the v3 spelling. `enforce-canonical` preserves whatever `!` position you write (it
+> does not normalize it), so this rule is the single source of truth for `!` placement and the two
+> never conflict.
 
 **Autofix:** Moves `!` to the correct position.
 
@@ -837,12 +839,14 @@ Warns when a class string exceeds the configured print width or classes-per-line
 
 **Options:**
 
-| Option           | Type     | Default | Description             |
-| ---------------- | -------- | ------- | ----------------------- |
-| `printWidth`     | `number` | `80`    | Max class string length |
-| `classesPerLine` | `number` |         | Max classes per line    |
+| Option           | Type                                  | Default     | Description                                                         |
+| ---------------- | ------------------------------------- | ----------- | ------------------------------------------------------------------- |
+| `printWidth`     | `number`                              | `80`        | Max class string length                                             |
+| `classesPerLine` | `number`                              |             | Max classes per line                                                |
+| `wrapLines`      | `'overWidth' \| 'all'`                |             | Re-wrap lines: only over-width, or always into the canonical layout |
+| `group`          | `'newLine' \| 'emptyLine' \| 'never'` | `'newLine'` | How the `wrapLines: 'all'` layout separates variant groups          |
 
-**Autofix:** Only for `classesPerLine` with template literals.
+**Autofix:** `classesPerLine` and `wrapLines` re-wrap template literals; `printWidth` is warn-only.
 
 ---
 

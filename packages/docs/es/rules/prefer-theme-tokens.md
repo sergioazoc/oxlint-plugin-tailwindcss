@@ -13,11 +13,15 @@ como la forma bracket (`prefix-[var(--name)]`) se reconocen, y los modificadores
 (`/80`), variants y `!` (important) se preservan.
 
 El candidato `${prefix}-${varName}` tiene que ser una utility real en tu DS — la regla consulta
-`cache.isValid(candidate)`. Después omite explícitamente cualquier candidato que
+`cache.isValid(candidate)`. Pero existir por nombre no alcanza: el token con nombre tiene que
+SIGNIFICAR lo mismo. `@theme inline { --color-primary: var(--primary) }` hace que `bg-primary` y
+`bg-(--primary)` sean la misma declaración, mientras que un `--color-primary` literal junto a un
+`--primary` no relacionado los vuelve colores distintos — y esta regla autofixea. Así que el
+reemplazo solo se propone cuando la declaración del token resuelve de vuelta a la variable que
+escribiste, o cuando esa variable no está definida en ningún lado (en cuyo caso la declaración
+actual es CSS muerto y el token solo puede ser una mejora). Después omite cualquier candidato que
 `cache.getNamedEquivalent` también resolvería, porque ese caso es propiedad de
-`no-unnecessary-arbitrary-value` (mismo CSS, sin doble-fire). Lo que queda es exactamente el espacio
-solo-heurístico: la utility con nombre existe en tu theme pero no comparte una shape bracket-
-equivalente con el original.
+`no-unnecessary-arbitrary-value` (mismo CSS, sin doble-fire).
 
 DS-dependiente — requiere `settings.tailwindcss.entryPoint`. Si el design system no puede cargar, la
 regla emite un único diagnóstico fatal `designSystemUnavailable` por archivo en vez de pasar en
@@ -25,9 +29,9 @@ silencio.
 
 ## Opciones
 
-Esta regla no tiene opciones propias más allá del override estándar `entryPoint` (string, defaultea
-a `settings.tailwindcss.entryPoint`). Configura el entry point en `settings.tailwindcss.entryPoint`
-para todo el proyecto en vez de por-regla cuando puedas.
+Esta regla no tiene opciones propias más allá del override estándar `entryPoint` (string, por
+defecto es `settings.tailwindcss.entryPoint`). Configura el entry point en
+`settings.tailwindcss.entryPoint` para todo el proyecto en vez de por-regla cuando puedas.
 
 ## Ejemplos
 
@@ -60,7 +64,7 @@ Asumiendo un theme estilo shadcn con tokens como `--border`, `--primary`, `--bac
 
 <div className="border-l-border" />
 
-// Variable sin utility nombrada que matchee — déjala
+// Variable sin utility nombrada que coincida — déjala
 <div className="border-(--no-such-token)" />
 ```
 

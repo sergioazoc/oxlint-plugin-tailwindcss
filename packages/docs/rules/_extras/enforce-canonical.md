@@ -4,10 +4,11 @@ Asks the design system for the canonical form of every utility in your code and 
 that aren't already canonical. "Canonical" is whatever `canonicalizeCandidates()` from
 `@tailwindcss/node` returns — the same source of truth used by prettier-plugin-tailwindcss, oxfmt,
 and the official Tailwind tooling. Examples: `-m-0` → `m-0` (no negative is needed for a zero),
-`bg-gradient-to-r` → `bg-linear-to-r`, `break-words` → `wrap-break-word`, `start-2` → `inset-s-2`,
-`flex-grow-1` → `grow`, `flex-grow-[2]` → `grow-2` (an arbitrary value whose named form emits
-identical CSS), `text-[var(--color-text)]/90` → `text-(--color-text)/90`. Auto- fix lands the first
-hit, suggestions cover the rest in the same string.
+`start-2` → `inset-s-2`, `flex-grow-[2]` → `grow-2` (an arbitrary value whose named form emits
+identical CSS), `text-[var(--color-text)]/90` → `text-(--color-text)/90`. Auto-fix lands the first
+hit, suggestions cover the rest in the same string. The v3 renames (`bg-gradient-to-r` →
+`bg-linear-to-r`, `break-words` → `wrap-break-word`) are owned by `no-deprecated-classes`, not this
+rule — see Interactions.
 
 Named classes resolve through a precomputed in-memory `canonicalMap` (sub-microsecond). Arbitrary
 values (`p-[2px]`, `bg-(--c)`) go through the `canonicalize-service` worker because they need a live
@@ -31,9 +32,6 @@ for the whole project instead of per-rule whenever possible.
 // Negative-of-zero is just zero
 <div className="-m-0 -mt-0" />
 
-// v3 spellings the official canonicalize step rewrites
-<div className="bg-gradient-to-r break-words" />
-
 // Logical inset shorthand → canonical inset-s-* / inset-e-*
 <div className="start-2 end-4" />
 
@@ -41,7 +39,7 @@ for the whole project instead of per-rule whenever possible.
 <div className="flex-grow-[2]" />
 
 // Variants and important are preserved
-<div className="hover:!break-words" />
+<div className="hover:!flex-grow-[2]" />
 ```
 
 ### ✓ Correct
@@ -49,13 +47,11 @@ for the whole project instead of per-rule whenever possible.
 ```tsx
 <div className="m-0 mt-0" />
 
-<div className="bg-linear-to-r wrap-break-word" />
-
 <div className="inset-s-2 inset-e-4" />
 
 <div className="grow-2" />
 
-<div className="hover:!wrap-break-word" />
+<div className="hover:!grow-2" />
 ```
 
 ## Interactions with other rules

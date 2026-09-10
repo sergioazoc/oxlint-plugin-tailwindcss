@@ -4,13 +4,13 @@ Cada setting vive bajo `settings.tailwindcss` en tu `.oxlintrc.json`.
 
 ## `entryPoint` (obligatorio)
 
-Ruta al archivo CSS que tiene `@import "tailwindcss";` y (opcionalmente) tus customizaciones de
+Ruta al archivo CSS que tiene `@import "tailwindcss";` y (opcionalmente) tus personalizaciones de
 `@theme { ... }`. El plugin lee este archivo para construir el design system que cada regla
 consulta.
 
 Es obligatorio para las reglas DS-dependientes, que fallan ruidosamente sin él. Hay un segundo grupo
 **DS-opcional**: esas funcionan sin nada configurado y ganan precisión cuando está —
-`enforce-shorthand` verifica cada merge contra el CSS emitido, `no-dark-without-light` agrupa la
+`enforce-shorthand` verifica cada fusión contra el CSS emitido, `no-dark-without-light` agrupa la
 base por propiedad declarada, `no-deprecated-classes` deriva su lista de renombres, y las reglas
 direccionales confirman que la clase que sugieren exista. Mira la
 [referencia de defaults](./rules/#referencia-de-defaults) para saber qué regla está en qué grupo.
@@ -42,10 +42,10 @@ desde la raíz del workspace (editor). Ver [Monorepos](/es/monorepo).
 
 Los globs (la forma de mapping) se evalúan contra el path del archivo lintado relativo al directorio
 donde corre oxlint. Sintaxis soportada: `*` (cualquier caracter excepto `/`), `**` (cualquier
-profundidad), segmentos literales. El orden importa — el primer entry que matchea gana. Se
+profundidad), segmentos literales. El orden importa — el primer entry que coincide gana. Se
 recomienda agregar un fallback `"**"` para archivos fuera de los globs explícitos.
 
-`files` también acepta un arreglo de globs (`string[]`): el entry matchea si el archivo lintado
+`files` también acepta un arreglo de globs (`string[]`): el entry coincide si el archivo lintado
 coincide con cualquiera de ellos.
 
 **v0.x → v1.0.0**: la forma legacy `string[]` se removió. Pasarla en v1 lanza
@@ -84,7 +84,7 @@ el resto del run falla rápido, y el estado se auto-sana cuando la máquina se r
 
 `boolean`, default `false`. También se activa con la variable de entorno `DEBUG=oxlint-tailwindcss`.
 
-Cuando está activo, el plugin loguea a stderr:
+Cuando está activo, el plugin registra en stderr:
 
 - Qué entry point CSS resolvió para cada archivo lintado.
 - Carga exitosa del DS y cache hits.
@@ -132,14 +132,14 @@ El plugin escanea estas ubicaciones por defecto:
 | Tags                 | `` tw`...` `` (tagged template literals)                                                                           |
 | Patrones de variable | `/^classNames?$/`, `/^classes$/`, `/^styles?$/`                                                                    |
 
-`attributes`, `callees` y `tags` matchean por **nombre exacto**. Dos ejes matchean por **regex**, y
-su alcance difiere — fíjate cuál necesitas:
+`attributes`, `callees` y `tags` coinciden por **nombre exacto**. Dos ejes coinciden por **regex**,
+y su alcance difiere — fíjate cuál necesitas:
 
-- **`attributePatterns`** matchea **nombres de atributos JSX**. Úsalo para convenciones `*ClassName`
-  sin listar cada prop — p. ej. `["ClassName$"]` captura `contentContainerClassName` y
+- **`attributePatterns`** coincide con **nombres de atributos JSX**. Úsalo para convenciones
+  `*ClassName` sin listar cada prop — p. ej. `["ClassName$"]` captura `contentContainerClassName` y
   `tintColorClassName` en componentes de React Native / Uniwind. Es aditivo a la lista exacta de
   `attributes`; vacío por defecto, así que el match exacto sigue siendo el default.
-- **`variablePatterns`** matchea **solo nombres de declaración de variables**
+- **`variablePatterns`** coincide con **solo nombres de declaración de variables**
   (`const fooClassName = "..."`), **no** atributos JSX. Su default `/^classNames?$/` coincide en
   escritura con el atributo `className`, pero son cosas distintas — una entrada de
   `variablePatterns` nunca afecta props JSX.
@@ -175,7 +175,7 @@ O quita de los defaults:
 }
 ```
 
-Las exclusiones de `variablePatterns` matchean contra `RegExp.source` literal.
+Las exclusiones de `variablePatterns` coinciden con `RegExp.source` literal.
 
 ## Cheat sheet
 

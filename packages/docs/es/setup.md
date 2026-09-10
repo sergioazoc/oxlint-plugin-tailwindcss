@@ -93,8 +93,8 @@ Si quieres un set "bendecido" que detecte problemas reales sin ser ruidoso, acti
 Agrega reglas extra a medida que las necesites:
 
 - `enforce-logical` / `enforce-physical` si tienes una preferencia de dirección.
-- `no-arbitrary-value`, `no-hardcoded-colors`, `no-restricted-classes` si quieres enforcement de
-  design-system.
+- `no-arbitrary-value`, `no-hardcoded-colors`, `no-restricted-classes` si quieres imponer la
+  disciplina del design system.
 - `prefer-theme-tokens` para preferir utilidades nombradas sobre referencias `var()`.
 
 El catálogo completo está en [Reglas](/es/rules/). Cada página documenta el comportamiento exacto,
@@ -168,14 +168,14 @@ y plugins como `@tailwindcss/typography`.
 ## 7. Yendo más allá
 
 - **Ajustar extractors**: por defecto el plugin escanea `className` / `class`, ~14 callees (`cn`,
-  `clsx`, `cva`, `twMerge`, …), templates con `tw`, y variables que matchean `/^classNames?$/`,
+  `clsx`, `cva`, `twMerge`, …), templates con `tw`, y variables que coinciden con `/^classNames?$/`,
   `/^classes$/`, `/^styles?$/`. Agrega `attributes`, `attributePatterns` (regex para props tipo
   `*ClassName`), `callees`, `tags`, `variablePatterns`, o quita defaults vía `exclude`. Mira la
   [referencia de settings](/es/settings).
 - **Ajustar timeouts**: `settings.tailwindcss.timeout` (ms, default 60000) limita cuánto espera el
   plugin al worker (hilo) que precomputa el design system. CI lento puede necesitar subirlo.
-- **Logging de debug**: `settings.tailwindcss.debug: true` (o `DEBUG=oxlint-tailwindcss`) loguea qué
-  CSS entry point resolvió por cada archivo lintado.
+- **Registro de depuración**: `settings.tailwindcss.debug: true` (o `DEBUG=oxlint-tailwindcss`)
+  registra qué CSS entry point resolvió por cada archivo lintado.
 - **Qué Tailwind se usa**: el plugin carga el motor de Tailwind de _tu_ proyecto, resuelto por entry
   point, así el linter y tu build coinciden. Si el motor resuelto es un major más nuevo que el
   plugin (un futuro Tailwind 5) o tiene un drift de major respecto de tu build, falla fuerte;
